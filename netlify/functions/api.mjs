@@ -216,11 +216,12 @@ export function handler({
                   (text) => save(g, { text, status: "streaming" }),
                 );
                 await save(g, answer);
-              } catch {
+              } catch (error) {
                 await save(g, {
                   status: "failed",
-                  error:
-                    "AI 응답 실패 또는 시간 초과. API 키·크레딧을 확인하고 다시 질문하세요. / AI request failed or timed out. Check API key and credit.",
+                  error: error.publicMessage || (['TimeoutError', 'AbortError'].includes(error.name)
+                    ? 'AI 응답 시간 초과입니다. / AI request timed out.'
+                    : 'AI 연결 또는 응답 처리에 실패했습니다. / AI connection or response processing failed.'),
                 });
               }
             }),
@@ -256,3 +257,4 @@ export function handler({
   };
 }
 export default handler();
+
