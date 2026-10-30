@@ -8,11 +8,11 @@ type Api = (path: string, body?: D, token?: string) => Promise<any>;
 const groupName = (g: string, lang: string) =>
   g === "KR"
     ? lang === "ko"
-      ? "한국 방"
-      : "Korea room"
+      ? "K-Arts 방"
+      : "K-Arts room"
     : lang === "ko"
-      ? "미국 방"
-      : "US room";
+      ? "VCU 방"
+      : "VCU room";
 export default function Duo() {
   const [lang, L] = useState(localStorage.getItem("jam-lang") || "ko");
   const t = (a: string, b: string) => (lang === "ko" ? a : b);
@@ -917,8 +917,8 @@ export default function Duo() {
                           <article key={g} className={"ai-answer " + g}>
                             <h3>
                               {g === "KR"
-                                ? t("한국 조 페르소나", "Korea-group persona")
-                                : t("미국 조 페르소나", "US-group persona")}
+                                ? t("K-Arts 페르소나", "K-Arts persona")
+                                : t("VCU 페르소나", "VCU persona")}
                             </h3>
                             <p>
                               {c.answers[g].text ||
