@@ -53,7 +53,7 @@ Python 3.11 이상에서:
 
 ```powershell
 python -m venv .venv
-.venv\Scripts\python -m pip install -r requirements.txt
+.venv\Scripts\python -m pip install -r requirements-local.txt
 # 인터넷이 되는 곳에서 모델 사전 다운로드
 .venv\Scripts\python -m backend.model
 # 다운로드한 JSON 분석 (같은 상황의 해석끼리만 비교)
@@ -89,3 +89,4 @@ $env:VCU_PUBLIC_URL = 'http://이컴퓨터의IPv4:8000'
 같은 Wi-Fi 휴대폰은 `http://이컴퓨터의IPv4:8000` 사용, Windows 방화벽에서 해당 포트를 허용합니다. 외부 접속은 Netlify 주소를 사용합니다. 로컬 백업: `.venv\Scripts\python scripts/backup.py`.
 
 검증 내역은 `NETLIFY_VALIDATION.md`를 참고하세요. 실제 배포와 실제 유료 API 호출 검증은 별도로 표시합니다.
+

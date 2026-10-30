@@ -20,3 +20,7 @@ VCU_workshop_Codex_spec.md
 한미학생 AI 캐릭터 소통 워크숍 쉬운 매뉴얼.md
 VALIDATION.md
 scripts/start.ps1
+
+# Keep Python model dependencies out of Netlify automatic installs.
+requirements.txt
+
