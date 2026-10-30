@@ -12,6 +12,7 @@ import {
   groups,
 } from "../lib/workshop.mjs";
 import { generate } from "../lib/llm.mjs";
+import { worker } from "../lib/worker.mjs";
 const json = (value, status = 200) =>
   new Response(JSON.stringify(value), {
     status,
@@ -75,6 +76,7 @@ export function handler({
           ok: true,
           storage: "Netlify Blobs",
           analysis: "local-only",
+          local_worker: 1,
         });
       if (path[0] === "login" && method === "POST") {
         fail(
@@ -184,7 +186,10 @@ export function handler({
       }
       const result = await update(store, key, (w) => {
         expire(w);
-        const result = mutate(w, action, body, a, env);
+        const result =
+          action === "worker"
+            ? worker(w, body, a)
+            : mutate(w, action, body, a, env);
         return { write: true, result };
       });
       if (action === "join")
@@ -196,6 +201,7 @@ export function handler({
           pid: result.pid,
         });
       if (action === "chat") {
+        if (result.run.provider === "ollama") return json(result.run);
         if (result.created) {
           const run = result.run;
           const save = async (g, fields) =>
@@ -219,9 +225,11 @@ export function handler({
               } catch (error) {
                 await save(g, {
                   status: "failed",
-                  error: error.publicMessage || (['TimeoutError', 'AbortError'].includes(error.name)
-                    ? 'AI 응답 시간 초과입니다. / AI request timed out.'
-                    : 'AI 연결 또는 응답 처리에 실패했습니다. / AI connection or response processing failed.'),
+                  error:
+                    error.publicMessage ||
+                    (["TimeoutError", "AbortError"].includes(error.name)
+                      ? "AI 응답 시간 초과입니다. / AI request timed out."
+                      : "AI 연결 또는 응답 처리에 실패했습니다. / AI connection or response processing failed."),
                 });
               }
             }),

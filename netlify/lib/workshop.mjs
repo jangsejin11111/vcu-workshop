@@ -2,7 +2,11 @@ import { randomUUID, randomInt } from "node:crypto";
 import content from "./content.json" with { type: "json" };
 import { fail } from "./auth.mjs";
 export const groups = ["KR", "US"];
-export const model = (env) => env.VCU_LLM_MODEL || "gpt-4.1-mini";
+export const localMode = (env) => env.VCU_AI_PROVIDER !== "openai";
+export const model = (env) =>
+  localMode(env)
+    ? env.VCU_LOCAL_MODEL || "qwen3:4b-instruct"
+    : env.VCU_LLM_MODEL || "gpt-4.1-mini";
 export const latest = (items, key) => [
   ...new Map(items.map((x) => [key(x), x])).values(),
 ];
@@ -49,7 +53,13 @@ export function expire(w, now = Date.now() / 1000) {
     changed = true;
   }
   for (const chat of w.duo_chat) {
-    if (chat.status === "running" && now - chat.started_at > 58) {
+    const timedOut =
+      chat.provider === "ollama"
+        ? (chat.status === "queued" && now - chat.started_at > 600) ||
+          (chat.status === "running" &&
+            (now > chat.lease_until || now - chat.started_at > 1800))
+        : chat.status === "running" && now - chat.started_at > 58;
+    if (timedOut) {
       chat.status = "failed";
       chat.finished_at = new Date().toISOString();
       for (const a of Object.values(chat.answers))
@@ -128,15 +138,21 @@ export function publicState(w, a, env) {
         ? c
         : Object.fromEntries(
             Object.entries(c).filter(
-              ([k]) => !["prompts", "actor", "request_id"].includes(k),
+              ([k]) =>
+                !["prompts", "actor", "request_id", "lease", "worker"].includes(
+                  k,
+                ),
             ),
           ),
     ),
     analyses: [],
     llm: {
-      provider: "OpenAI",
-      model: model(env),
-      configured: !!env.OPENAI_API_KEY,
+      provider: localMode(env) ? "Ollama · local" : "OpenAI",
+      model: localMode(env) ? w.local_ai?.model || model(env) : model(env),
+      configured: localMode(env)
+        ? Date.now() / 1000 - (w.local_ai?.seen_at || 0) < 60
+        : !!env.OPENAI_API_KEY,
+      local: localMode(env),
       cloud: true,
     },
   };
@@ -413,7 +429,7 @@ export function mutate(w, action, body, a, env) {
       notes: ns,
       prompts,
       method: "prompt_conditioning",
-      model: model(env),
+      model: localMode(env) ? w.local_ai?.model || model(env) : model(env),
     });
     w.phase = "compare";
     w.persona = v.id;
@@ -428,12 +444,16 @@ export function mutate(w, action, body, a, env) {
     const existing = w.duo_chat.find((c) => c.request_id === request_id);
     if (existing) return { run: existing, created: false };
     fail(
-      env.OPENAI_API_KEY,
-      "Set OPENAI_API_KEY in Netlify environment variables and redeploy.",
+      localMode(env)
+        ? Date.now() / 1000 - (w.local_ai?.seen_at || 0) < 60
+        : env.OPENAI_API_KEY,
+      localMode(env)
+        ? "진행자 컴퓨터에서 로컬 AI 연결 프로그램을 실행하세요. / Start the local AI worker."
+        : "Set OPENAI_API_KEY in Netlify environment variables and redeploy.",
       503,
     );
     fail(
-      !w.duo_chat.some((c) => c.status === "running"),
+      !w.duo_chat.some((c) => ["queued", "running"].includes(c.status)),
       "Wait for the current answers",
       409,
     );
@@ -444,14 +464,17 @@ export function mutate(w, action, body, a, env) {
     );
     const v = w.duo_persona.find((v) => v.id === w.persona);
     const run = add(w, "duo_chat", {
-      status: "running",
+      status: localMode(env) ? "queued" : "running",
+      provider: localMode(env) ? "ollama" : "openai",
       started_at: Date.now() / 1000,
       question,
       request_id,
       persona: v.id,
       version: v.version,
       prompts: v.prompts,
-      model: v.model,
+      model: localMode(env) ? w.local_ai.model : v.model,
+      model_digest: localMode(env) ? w.local_ai.digest : null,
+      num_ctx: localMode(env) ? w.local_ai.num_ctx : null,
       temperature: 0.7,
       max_output_tokens: 600,
       answers: {
@@ -517,3 +540,4 @@ export function csv(w) {
       .join("\r\n")
   );
 }
+

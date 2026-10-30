@@ -23,4 +23,5 @@ scripts/start.ps1
 
 # Keep Python model dependencies out of Netlify automatic installs.
 requirements.txt
+.local-ai/
 

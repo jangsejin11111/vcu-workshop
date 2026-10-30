@@ -226,8 +226,8 @@ export default function Duo() {
                     onChange={(e) => Consent(e.target.checked)}
                   />
                   {t(
-                    "내 작성 내용이 같은 방과 진행자에게 실시간 공개되고, 개별 답변과 확정된 조별 결론이 OpenAI 응답 생성에 사용되는 데 동의해요.",
-                    "I agree to share my writing live with my room and facilitator, and use my individual responses and confirmed group notes with OpenAI to generate responses.",
+                    "내 작성 내용이 같은 방과 진행자에게 실시간 공개되고, 개별 답변과 확정된 조별 결론이 진행자의 AI 페르소나 응답 생성에 사용되는 데 동의해요.",
+                    "I agree to share my writing live with my room and facilitator, and use my individual responses and confirmed group notes for the facilitator’s AI personas.",
                   )}
                 </label>
                 <button
@@ -426,14 +426,36 @@ export default function Duo() {
             )}
             {showSetup && state.role === "admin" && (
               <section className="j-note">
-                <h2>OpenAI API</h2>
+                <h2>
+                  {state.llm.local
+                    ? t("내 컴퓨터의 AI", "Local AI")
+                    : "OpenAI API"}
+                </h2>
                 <p>
                   {state.llm.model} ·{" "}
                   {state.llm.configured
                     ? t("연결 설정됨", "Configured")
-                    : t("키 필요", "API key needed")}
+                    : state.llm.local
+                      ? t("연결 프로그램 실행 필요", "Start local worker")
+                      : t("키 필요", "API key needed")}
                 </p>
-                {CLOUD ? (
+                {state.llm.local ? (
+                  <div>
+                    <p>
+                      {t(
+                        "이 컴퓨터에서 아래 명령을 실행하고 켜두세요. 참가자는 지금 웹 주소를 그대로 사용합니다.",
+                        "Run the command on the facilitator computer and keep it running. Participants keep using this website.",
+                      )}
+                    </p>
+                    <pre>{`powershell -File scripts/start-local-ai.ps1 -Room ${code}`}</pre>
+                    <p>
+                      {t(
+                        "API 키·크레딧이 필요하지 않습니다. 컴퓨터가 꺼지거나 연결이 끊기면 AI 답변이 중단됩니다.",
+                        "No API key or credits required. AI replies stop if the computer disconnects.",
+                      )}
+                    </p>
+                  </div>
+                ) : CLOUD ? (
                   <p>
                     {t(
                       "Netlify → Project configuration → Environment variables에서 OPENAI_API_KEY를 설정한 뒤 다시 배포하세요. API 사용료는 별도입니다.",
@@ -794,10 +816,15 @@ export default function Duo() {
                 </p>
                 {!state.llm.configured && (
                   <div className="j-error">
-                    {t(
-                      "진행자 컴퓨터에서 OpenAI 키를 연결하면 실제 AI 응답이 시작됩니다.",
-                      "Connect an OpenAI key on the facilitator computer to receive real AI responses.",
-                    )}
+                    {state.llm.local
+                      ? t(
+                          "진행자 컴퓨터의 로컬 AI 연결을 기다리고 있어요.",
+                          "Waiting for the facilitator’s local AI worker.",
+                        )
+                      : t(
+                          "진행자 컴퓨터에서 OpenAI 키를 연결하면 실제 AI 응답이 시작됩니다.",
+                          "Connect an OpenAI key on the facilitator computer to receive real AI responses.",
+                        )}
                   </div>
                 )}
                 {state.role === "admin" && state.phase === "compare" && (
@@ -856,7 +883,9 @@ export default function Duo() {
                           busy ||
                           !question.trim() ||
                           !state.llm.configured ||
-                          state.chats.some((c: D) => c.status === "running")
+                          state.chats.some((c: D) =>
+                            ["queued", "running"].includes(c.status),
+                          )
                         }
                       >
                         {t("동시에 질문하기", "Ask both")} ↑
@@ -1338,3 +1367,4 @@ function Conclusion({
     </section>
   );
 }
+

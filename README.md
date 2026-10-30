@@ -2,6 +2,31 @@
 
 한국/미국 두 방에 같은 상황카드를 보여주고, 토론 후 두 페르소나의 실제 AI 응답을 비교하는 첫째 날 워크숍 도구입니다.
 
+## 로컬 AI로 운영 (기본 모드)
+
+참가자는 기존 Netlify 주소를 사용합니다. 토론 데이터와 AI 답변은 Netlify Blobs에 저장하고, 답변 생성만 진행자 컴퓨터의 Ollama에서 실행합니다. OpenAI 키나 유료 API 크레딧은 필요하지 않습니다. 컴퓨터는 Netlify로 나가는 HTTPS 연결만 사용하므로 다른 Wi-Fi 참여, LTE 참여가 가능하고 포트포워딩이 필요하지 않습니다.
+
+1. Ollama Windows 설치: https://ollama.com/download/windows (또는 공식 standalone ZIP).
+2. 모델 다운로드: `ollama pull qwen3:4b-instruct` (약 2.5GB). 설치·최초 다운로드에는 인터넷이 필요합니다.
+3. Python 환경 준비: `python -m venv .venv`, `.venv\Scripts\python -m pip install -r requirements-worker.txt`.
+4. 웹에서 워크숍을 만든 뒤 이 컴퓨터의 프로젝트 폴더에서 실행:
+
+```powershell
+powershell -File scripts/start-local-ai.ps1 -Room 1031a
+```
+
+진행자 비밀번호를 입력하고 실행 창을 켜두세요. 웹의 AI 연결 표시가 켜지면 비교를 시작할 수 있습니다. 다른 방 코드는 `-Room` 값만 바꾸세요. 창에서 Ctrl+C로 종료합니다. 모델 서버는 localhost:11434만 사용합니다. 진행자의 컴퓨터는 켜져 있고 인터넷에 연결돼 있어야 합니다.
+
+직접 실행:
+
+```powershell
+.venv\Scripts\python scripts/local_ai_worker.py --site https://YOUR-SITE.netlify.app --room 1031a --model qwen3:4b-instruct --num-ctx 32768
+```
+
+두 페르소나는 동일한 로컬 모델로 순서대로 생성하며, 각 조의 개별 응답과 확정 결론을 모두 참고합니다. 모델 이름·digest·생성 설정·프롬프트·응답을 기록합니다. 기존에 확정한 페르소나도 그대로 사용할 수 있고, 새 질문부터 로컬 모델이 사용됩니다. 기존 OpenAI 실패 기록은 보존합니다.
+
+컴퓨터 연결이 끊기면 90초 안에 작업이 실패 처리되며 부분 응답은 남습니다. 유료 모델로 자동 대체하지 않습니다. 로컬 모델의 컨텍스트 크기는 기본 32,768입니다. 원문을 조용히 잘라내지 않도록 보수적인 UTF-8 바이트 길이 검사를 하며, 자료가 너무 많으면 명시적으로 실패합니다. 이때 더 큰 컨텍스트/메모리 설정이 필요합니다. GPU와 모델에 따라 생성 속도와 한국어 품질이 달라집니다.
+
 ## Netlify 배포
 
 1. Netlify 로그인 → **Add new project → Import an existing project → GitHub** → `vcu-workshop` 선택.
@@ -12,14 +37,14 @@
 |---|---|
 | `VCU_ADMIN_PASSWORD` | 진행자 비밀번호 |
 | `VCU_AUTH_SECRET` | 임의의 32자 이상 비밀 문자열. 아래 명령으로 생성 |
-| `OPENAI_API_KEY` | OpenAI 프로젝트 API 키. 없어도 토론·저장·다운로드 가능 |
-| `VCU_LLM_MODEL` | 선택사항. 기본 `gpt-4.1-mini` |
+| `VCU_AI_PROVIDER` | 기본값은 로컬. 설정하지 않아도 됩니다. 유료 API를 명시적으로 쓸 때만 `openai` |
+| `VCU_LOCAL_MODEL` | 선택사항. 기본 `qwen3:4b-instruct`. 실행 중인 로컬 worker 모델이 우선 |
 
 ```powershell
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-API 키: https://platform.openai.com/api-keys 에서 생성. API 사용 가능한 크레딧이 필요합니다. 키 값은 GitHub·채팅·클라이언트 코드에 저장하지 않습니다. 환경변수를 바꾼 뒤 다시 배포하세요.
+로컬 모드에서는 기존 `OPENAI_API_KEY`가 저장돼 있어도 호출하지 않습니다. 유료 OpenAI 모드를 명시적으로 켤 경우에만 `OPENAI_API_KEY`와 선택사항 `VCU_LLM_MODEL`(기본 gpt-4.1-mini)이 사용됩니다. 환경변수는 변경 후 다시 배포하세요.
 
 Netlify Blobs는 사이트에 자동 연결되는 서버 저장소입니다. 별도 DB 계정이 필요하지 않습니다. 일반 재배포 후에도 기록을 유지합니다. 사이트 삭제는 별도 작업이므로 먼저 JSON을 백업하세요. 배포 미리보기에서 실제 워크숍 데이터를 다루지 마세요.
 
@@ -35,13 +60,13 @@ Netlify Blobs는 사이트에 자동 연결되는 서버 저장소입니다. 별
 - 토론 뒤: 카드마다 양쪽 조의 영어 결론 확정 → 페르소나 생성 → 동일 질문에 두 AI 응답.
 - 두 모델은 같은 모델/템플릿/생성 설정을 사용하고, 각 조의 영어 결론과 참가자별 최신 개별 응답을 참고합니다. 실제 모델 가중치 학습이 아닌 프롬프트 기반 페르소나입니다. 소수 의견과 불확실성도 구분합니다.
 - 개인 응답의 이전 버전, 조별 결론 버전, 생성 시점의 프롬프트, 모델 응답은 JSON에 각각 보존합니다. 해석·대답·행동·감정 필드를 합치지 않습니다.
-- 실제 OpenAI Responses API를 사용합니다. 실패/시간 초과 시 오류를 남기며 가짜 답변을 만들지 않습니다. 질문당 두 번의 API 호출이 발생합니다.
+- 기본 모드에서는 실제 로컬 Ollama 모델이 답변합니다. 실패/시간 초과 시 오류를 남기며 가짜 답변을 만들지 않습니다. 질문당 두 페르소나를 로컬에서 순차 생성합니다.
 
 ## 무료 운영 범위
 
-Netlify Free 플랜의 사용량 범위 내 운영을 위한 구성입니다. 무료 한도는 무제한이 아니며, 트래픽/서버 함수/저장소/배포 사용량을 Netlify에서 확인하세요. 실제 AI 호출은 OpenAI의 API 과금/크레딧 적용 대상입니다. 호스팅 무료가 AI 무제한 무료를 뜻하지 않습니다.
+Netlify Free 플랜의 사용량 범위 내 운영을 위한 구성입니다. 무료 한도는 무제한이 아니며, 트래픽/서버 함수/저장소/배포 사용량을 Netlify에서 확인하세요. 로컬 AI에는 API 호출료가 없으며 개인 컴퓨터의 전력과 하드웨어를 사용합니다. OpenAI 모드를 따로 켜면 그때만 API 과금/크레딧이 적용됩니다.
 
-활성 탭은 3초 간격으로 갱신하고 숨겨진 탭은 자동 조회를 멈춥니다. 온라인 워크숍당 참가자 150명, 질문 100회 상한이 있습니다. API 응답은 약 43초 제한 안에서 처리합니다. 운영 전 실제 인원으로 동시 접속 리허설을 권장합니다. 로컬 테스트는 소규모 경합 검증이며 150명 부하 검증을 뜻하지 않습니다.
+활성 탭은 3초 간격으로 갱신하고 숨겨진 탭은 자동 조회를 멈춥니다. 온라인 워크숍당 참가자 150명, 질문 100회 상한이 있습니다. 로컬 AI는 질문을 대기열에 넣고 진행자 컴퓨터에서 처리하므로 서버 함수의 60초 제한을 넘는 생성도 가능합니다. 연결 확인용 요청도 Netlify 사용량에 포함됩니다. 운영 전 실제 인원으로 동시 접속 리허설을 권장합니다. 로컬 테스트는 소규모 경합 검증이며 150명 부하 검증을 뜻하지 않습니다.
 
 공식 문서: https://docs.netlify.com/build/data-and-storage/netlify-blobs/ · https://docs.netlify.com/build/functions/configuration/ · https://www.netlify.com/pricing/
 

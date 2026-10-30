@@ -30,30 +30,72 @@ class MemoryStore {
   }
 }
 const env = {
+  VCU_AI_PROVIDER: "openai",
   VCU_AUTH_SECRET: "test-only-secret-at-least-32-characters",
   VCU_ADMIN_PASSWORD: "test-pass",
   OPENAI_API_KEY: "test-only",
 };
 
-test('AI failure and interrupted runs retain errors; missing key blocks real calls', async () => {
-  const f=fixture(async()=>{throw Error('simulated transport failure');}),x=await ready(f);
-  await update(f.store,'rooms/'+x.code,w=>{w.phase='compare';w.persona='v';w.duo_persona.push({id:'v',version:1,prompts:{KR:'k',US:'u'},model:'m'});return {write:true};});
-  const result=await f.req(x.root+'/chat',{question:'q',request_id:'failure'},x.admin);
-  assert.equal(result.data.status,'failed');assert.equal(result.data.answers.KR.text,'');assert.equal(result.data.answers.US.status,'failed');
-  await update(f.store,'rooms/'+x.code,w=>{w.duo_chat[0].status='running';w.duo_chat[0].started_at=0;w.duo_chat[0].answers.KR={status:'streaming',text:'partial'};return {write:true};});
-  assert.equal((await f.req(x.root,undefined,x.admin)).data.chats[0].status,'failed');
-  const noKey=handler({getStore:()=>f.store,env:{...env,OPENAI_API_KEY:''}});
-  const response=await noKey(new Request('https://test.example/api'+x.root+'/chat',{method:'POST',headers:{Authorization:'Bearer '+x.admin},body:JSON.stringify({question:'q',request_id:'no-key'})}));
-  assert.equal(response.status,503);
+test("AI failure and interrupted runs retain errors; missing key blocks real calls", async () => {
+  const f = fixture(async () => {
+      throw Error("simulated transport failure");
+    }),
+    x = await ready(f);
+  await update(f.store, "rooms/" + x.code, (w) => {
+    w.phase = "compare";
+    w.persona = "v";
+    w.duo_persona.push({
+      id: "v",
+      version: 1,
+      prompts: { KR: "k", US: "u" },
+      model: "m",
+    });
+    return { write: true };
+  });
+  const result = await f.req(
+    x.root + "/chat",
+    { question: "q", request_id: "failure" },
+    x.admin,
+  );
+  assert.equal(result.data.status, "failed");
+  assert.equal(result.data.answers.KR.text, "");
+  assert.equal(result.data.answers.US.status, "failed");
+  await update(f.store, "rooms/" + x.code, (w) => {
+    w.duo_chat[0].status = "running";
+    w.duo_chat[0].started_at = 0;
+    w.duo_chat[0].answers.KR = { status: "streaming", text: "partial" };
+    return { write: true };
+  });
+  assert.equal(
+    (await f.req(x.root, undefined, x.admin)).data.chats[0].status,
+    "failed",
+  );
+  const noKey = handler({
+    getStore: () => f.store,
+    env: { ...env, OPENAI_API_KEY: "" },
+  });
+  const response = await noKey(
+    new Request("https://test.example/api" + x.root + "/chat", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + x.admin },
+      body: JSON.stringify({ question: "q", request_id: "no-key" }),
+    }),
+  );
+  assert.equal(response.status, 503);
 });
 function fixture(
   generator = async (p, q, m, e, delta) => {
     await delta("partial");
     return { status: "complete", text: "TEST ONLY", model: m };
   },
+  testEnv = env,
 ) {
   const store = new MemoryStore(),
-    api = handler({ getStore: () => store, env, generateAI: generator });
+    api = handler({
+      getStore: () => store,
+      env: testEnv,
+      generateAI: generator,
+    });
   async function req(path, body, token) {
     const r = await api(
       new Request("https://test.example/api" + path, {
@@ -268,3 +310,120 @@ test("OpenAI contract parses real SSE format and fails incomplete streams withou
     ),
   );
 });
+
+test("local jobs require a live worker, isolate leases, preserve progress, and never invoke OpenAI", async () => {
+  const f = fixture(
+      async () => {
+        throw Error("OpenAI must not be invoked");
+      },
+      { ...env, VCU_AI_PROVIDER: "local", OPENAI_API_KEY: "" },
+    ),
+    x = await ready(f);
+  await update(f.store, "rooms/" + x.code, (w) => {
+    w.phase = "compare";
+    w.persona = "v";
+    w.duo_persona.push({
+      id: "v",
+      version: 1,
+      model: "old-openai-model",
+      prompts: { KR: "KR notes", US: "US notes" },
+    });
+    return { write: true };
+  });
+  const question = { question: "hello", request_id: "local-1" },
+    poll = {
+      action: "poll",
+      worker: "worker-1",
+      model: "qwen3:4b-instruct",
+      digest: "digest-1",
+      num_ctx: 32768,
+    };
+  assert.equal((await f.req(x.root + "/chat", question, x.admin)).status, 503);
+  assert.equal((await f.req(x.root + "/worker", poll, x.kr)).status, 403);
+  assert.equal((await f.req(x.root + "/worker", poll, x.admin)).status, 200);
+  const queued = (await f.req(x.root + "/chat", question, x.admin)).data;
+  assert.equal(queued.status, "queued");
+  assert.equal(queued.provider, "ollama");
+  assert.equal(queued.model, poll.model);
+  const { job } = (await f.req(x.root + "/worker", poll, x.admin)).data;
+  assert.deepEqual(job.prompts, { KR: "KR notes", US: "US notes" });
+  assert.equal(
+    (await f.req(x.root + "/worker", { ...poll, worker: "other" }, x.admin))
+      .status,
+    409,
+  );
+  assert.equal((await f.req(x.root + "/worker", poll, x.admin)).data.job, null);
+  const base = { worker: "worker-1", job: job.id, lease: job.lease },
+    answers = {
+      KR: { status: "streaming", text: "partial" },
+      US: { status: "queued", text: "" },
+    };
+  assert.equal(
+    (
+      await f.req(
+        x.root + "/worker",
+        { ...base, lease: "wrong", action: "heartbeat" },
+        x.admin,
+      )
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await f.req(
+        x.root + "/worker",
+        { ...base, action: "progress", sequence: 2, answers },
+        x.admin,
+      )
+    ).status,
+    200,
+  );
+  await f.req(
+    x.root + "/worker",
+    {
+      ...base,
+      action: "progress",
+      sequence: 1,
+      answers: { KR: { status: "streaming", text: "old" }, US: answers.US },
+    },
+    x.admin,
+  );
+  const state = (await f.req(x.root, undefined, x.kr)).data;
+  assert.equal(state.chats[0].answers.KR.text, "partial");
+  assert.equal(state.chats[0].lease, undefined);
+  assert.equal(state.chats[0].prompts, undefined);
+  const final = {
+    ...base,
+    action: "finish",
+    sequence: 3,
+    answers: {
+      KR: { status: "complete", text: "K answer" },
+      US: { status: "complete", text: "U answer" },
+    },
+  };
+  assert.equal((await f.req(x.root + "/worker", final, x.admin)).status, 200);
+  assert.equal((await f.req(x.root + "/worker", final, x.admin)).status, 200);
+  assert.equal(
+    (await f.req(x.root, undefined, x.admin)).data.chats[0].status,
+    "complete",
+  );
+  const dup = (await f.req(x.root + "/chat", question, x.admin)).data;
+  assert.equal(dup.id, job.id);
+  const next = (
+    await f.req(
+      x.root + "/chat",
+      { ...question, request_id: "local-2" },
+      x.admin,
+    )
+  ).data;
+  await f.req(x.root + "/worker", poll, x.admin);
+  await update(f.store, "rooms/" + x.code, (w) => {
+    w.duo_chat.find((c) => c.id === next.id).lease_until = 0;
+    return { write: true };
+  });
+  assert.equal(
+    (await f.req(x.root, undefined, x.admin)).data.chats.at(-1).status,
+    "failed",
+  );
+});
+
