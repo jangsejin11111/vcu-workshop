@@ -89,4 +89,3 @@ $env:VCU_PUBLIC_URL = 'http://이컴퓨터의IPv4:8000'
 같은 Wi-Fi 휴대폰은 `http://이컴퓨터의IPv4:8000` 사용, Windows 방화벽에서 해당 포트를 허용합니다. 외부 접속은 Netlify 주소를 사용합니다. 로컬 백업: `.venv\Scripts\python scripts/backup.py`.
 
 검증 내역은 `NETLIFY_VALIDATION.md`를 참고하세요. 실제 배포와 실제 유료 API 호출 검증은 별도로 표시합니다.
-

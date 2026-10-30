@@ -1,0 +1,16 @@
+# Netlify migration verification
+
+2026-10-31
+
+- `npm run test:cloud`: 6 tests pass. Room/group privacy, revision conflicts, deadline enforcement, screen permissions, simultaneous conditional writes, latest individual-response references, prompt isolation, same-question comparison, request idempotency, login throttling, SSE parsing, interrupted runs, missing keys and incomplete-stream errors.
+- Python `pytest`: 15 tests pass, including legacy local functionality and multi-export deduplication.
+- Real locally cached multilingual Sentence-BERT successfully analyzed a synthetic Korean/English pair using the new export CLI (2 responses, 1 cosine pair). No workshop data was sent externally.
+- React/TypeScript production build passes with and without `VITE_CLOUD=true`.
+- Cloud tests use an in-memory store and explicit test-only AI responses. These are not real deployment or paid API call verification. Production never substitutes these responses.
+- Real Netlify deployment and actual OpenAI generation still require account configuration and have not yet been verified.
+- Persistent data is held in Netlify Blobs with strong reads and conditional ETag writes. No client receives the API key or another group's individual drafts.
+- Room data has a 5 MB ceiling to remain below function payload limits. Export and start a new workshop if reached. The API reports this explicitly instead of silently dropping revisions.
+- Local SQLite data, backups, API keys, facilitator credentials, source manuals and participant exports are excluded from the GitHub upload.
+- The cloud archive exports JSON and CSV. SBERT executes separately through `scripts/analyze_export.py`; cloud analysis-result upload is not implemented.
+
+Before the workshop: configure Netlify server environment variables, deploy, create a workshop, join from two devices on different networks, confirm one KR and one US response, confirm English notes, and make one real two-persona API comparison. Download JSON afterwards. No browser/device visual rehearsal has been performed by the automated tests.

@@ -1,0 +1,22 @@
+.venv/
+node_modules/
+dist/
+data/
+backups/
+__pycache__/
+.pytest_cache/
+*.log
+.env
+.env.*
+!.env.example
+.netlify/
+validation/
+*.sqlite3*
+*-workshop.json
+*-two-rooms.json
+analysis-*.json
+# Local source documents and historical validation notes are not deployment assets.
+VCU_workshop_Codex_spec.md
+한미학생 AI 캐릭터 소통 워크숍 쉬운 매뉴얼.md
+VALIDATION.md
+scripts/start.ps1
