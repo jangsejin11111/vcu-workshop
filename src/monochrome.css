@@ -69,4 +69,7 @@
  .ai-answer,.ai-answer.US {padding:22px;} .ai-answer p {font-size:20px;}
 }
 @media(prefers-reduced-motion:reduce){.jam button{transition:none;}}
+/* Keep visually hidden choice radios inside their labels on narrow screens. */
+.meaning-options label {position:relative;}
+.jam .meaning-options input[type="radio"] {width:1px;height:1px;padding:0;margin:0;border:0;clip-path:inset(50%);overflow:hidden;}
 
