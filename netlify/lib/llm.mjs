@@ -7,11 +7,33 @@ export async function generate(
   onText,
   fetcher = fetch,
 ) {
+  try {
+    return await generateRequest(prompt, question, model, env, onText, fetcher);
+  } catch (error) {
+    if (error.publicMessage) throw error;
+    const cause = error.cause?.code;
+    const known = ['ENOTFOUND','EAI_AGAIN','ECONNRESET','ECONNREFUSED','UND_ERR_CONNECT_TIMEOUT','UND_ERR_SOCKET','CERT_HAS_EXPIRED','UNABLE_TO_VERIFY_LEAF_SIGNATURE'];
+    const reason = ['TimeoutError','AbortError'].includes(error.name)
+      ? 'AI 요청 시간 초과 / AI request timed out'
+      : known.includes(cause)
+      ? `서버에서 OpenAI 연결 실패 / Network connection failed (${cause})`
+      : error.name === 'SyntaxError'
+      ? 'OpenAI 응답 형식 처리 실패 / Invalid response format'
+      : error.name === 'TypeError'
+      ? '네트워크 요청 또는 응답 본문 읽기 실패 / Request or response body failed (TypeError)'
+      : '응답 처리 또는 중간 결과 저장 실패 / Response processing or saving failed';
+    throw Object.assign(new Error(reason), {publicMessage: reason});
+  }
+}
+async function generateRequest(prompt, question, model, env, onText, fetcher) {
+  const key = (env.OPENAI_API_KEY || '').trim();
+  if (!key || /[^\x21-\x7e]/.test(key) || key.startsWith('"') || key.startsWith("'"))
+    throw Object.assign(new Error('Invalid key format'), {publicMessage:'API 키 형식 오류: 공백·줄바꿈·따옴표·한글 없이 키만 입력하세요. / Invalid API key format.'});
   const response = await fetcher("https://api.openai.com/v1/responses", {
     method: "POST",
     signal: AbortSignal.timeout(43000),
     headers: {
-      Authorization: "Bearer " + env.OPENAI_API_KEY,
+      Authorization: "Bearer " + key,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -67,13 +89,24 @@ export async function generate(
           last = Date.now();
         }
       }
-      if (["error", "response.failed", "response.incomplete"].includes(e.type))
-        throw Error("OpenAI could not complete the response. Please retry.");
+      if (["error", "response.failed", "response.incomplete"].includes(e.type)) {
+        const code = e.code || e.error?.code || e.response?.error?.code || e.response?.incomplete_details?.reason;
+        const reasons = {
+          insufficient_quota:'OpenAI API 크레딧 또는 사용 한도 부족 / Insufficient API quota',
+          invalid_api_key:'API 키 인증 실패 / Invalid API key',
+          rate_limit_exceeded:'OpenAI 요청 한도 초과 / Rate limit exceeded',
+          model_not_found:'모델 접근 권한 또는 모델 이름 오류 / Model unavailable',
+          max_output_tokens:'응답 길이 제한에 도달했습니다 / Output token limit reached',
+          content_filter:'OpenAI에서 응답을 제한했습니다 / Response filtered',
+          server_error:'OpenAI 내부 오류 / OpenAI server error',
+        };
+        throw Object.assign(new Error('OpenAI stream failed'), {publicMessage:reasons[code] || `OpenAI 응답 중단 / Stream interrupted (${e.type})`});
+      }
       if (e.type === "response.completed") completed = e.response;
     }
   }
   if (!completed || !text.trim())
-    throw Error("OpenAI stream ended without a complete answer.");
+    throw Object.assign(new Error('Incomplete stream'), {publicMessage:'OpenAI 응답 연결이 완료 전에 종료됐습니다 / Stream ended before completion.'});
   return {
     text,
     model: completed.model,
