@@ -4,7 +4,7 @@ from backend.db import db,get,put,rows
 def setup(env):
  c,admin=env;r=post(c,'/workshops',{'name':'test'},admin);code=r['id'];root='/workshops/'+code;users={}
  for group in ['KR','US']:
-  x=post(c,root+'/join',{'group':group,'consent':True},{})
+  x=post(c,root+'/join',{'group':group,'nickname':group+' student','consent':True},{})
   users[group]={'Authorization':'Bearer '+x['token']}
  post(c,root+'/control',{'action':'draw','minutes':5,'card':0},admin)
  s=c.get('/api'+root,headers=admin).json()
@@ -19,7 +19,7 @@ def test_duo_live_visibility_timer_and_conflicts(env):
  assert us['edits']==[] and kr['edits'][0]['answers']['meaning']==b['answers']['meaning']
  assert len(all['participants'])==2 and kr['round']==us['round']
  assert c.get('/api/rooms/'+code+'/jam',headers=users['US']).status_code==409
- assert c.post('/api/rooms/'+code+'/join',json={'group':'KR','classroom':True}).status_code==409
+ assert c.post('/api/rooms/'+code+'/join',json={'nickname':'Min','group':'KR','classroom':True}).status_code==409
  with db() as conn:
   r=get(conn,rid,'duo_round');r['ends_at']=0;put(conn,code,'duo_round',r)
  assert c.get('/api'+root,headers=users['KR']).json()['phase']=='round_closed'
@@ -57,7 +57,7 @@ def test_personas_real_call_contract_no_fallback_and_history(env,monkeypatch):
  assert post(c,root+'/chat',{'question':"I'm fine.",'request_id':'once'},admin)['id']==run['id'] and len(calls)==2
  state=c.get('/api'+root,headers=users['KR']).json();assert state['chats'][0]['status']=='complete' and 'prompts' not in state['chats'][0]
  post(c,root+'/control',{'action':'prepare'},admin)
- post(c,root+'/conclusion',{'round':rid,'group':'KR','base_version':2,'original':'new','english':'new english','approved':True},admin)
+ post(c,root+'/conclusion',{'round':rid,'nickname':'Min','group':'KR','base_version':2,'original':'new','english':'new english','approved':True},admin)
  v2=post(c,root+'/personas',{},admin);assert v2['version']==2
  export=c.get('/api'+root+'/export',headers=admin).json()
  assert len(export['duo_persona'])==2 and export['duo_chat'][0]['prompts']==v['prompts']
@@ -69,7 +69,7 @@ def test_personas_real_call_contract_no_fallback_and_history(env,monkeypatch):
 
 def test_conclusion_group_binding_and_screen_readonly(env):
  c,admin,code,root,users,rid=setup(env)
- n=post(c,root+'/conclusion',{'round':rid,'group':'US','base_version':0,'original':'ours','english':'ours'},users['KR'])
+ n=post(c,root+'/conclusion',{'round':rid,'nickname':'Alex','group':'US','base_version':0,'original':'ours','english':'ours'},users['KR'])
  assert n['group']=='KR' and not n['approved']
  st=post(c,'/rooms/'+code+'/screen',{},admin);screen={'Authorization':'Bearer '+st['token']}
  assert c.get('/api'+root,headers=screen).status_code==200
@@ -122,3 +122,4 @@ def test_short_password_and_dated_versions(env,monkeypatch):
  assert c.get('/api/workshops/'+a.upper(),headers=admin).status_code==200
  with db() as conn:put(conn,'*','room_alias',{'id':'alias-OLD123','target':a})
  assert c.get('/api/workshops/OLD123',headers=admin).json()['id']==a
+

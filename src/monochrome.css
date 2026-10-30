@@ -1,0 +1,72 @@
+/* Monochrome workshop: shared tokens also cover the archive. */
+.jam { --ink:#111; --paper:#fff; --accent:#111; background:#fff; color:#111; font-family:Inter,"Segoe UI","Malgun Gothic",sans-serif; font-weight:650; }
+.jam h1,.jam h2,.jam h3,.jam strong,.jam b {font-weight:850;}
+.jam h1 {letter-spacing:-.055em;line-height:1.12;}
+.jam h2 {letter-spacing:-.035em;}
+.jam button {border-color:#d4d4d4;border-radius:8px;font-weight:750;transition:background .18s,color .18s;}
+.jam button:not(:disabled):hover {background:#eee;color:#111;}
+.jam .j-primary,.jam button.selected {background:#111;color:#fff;border-color:#111;}
+.jam .j-primary:not(:disabled):hover,.jam button.selected:hover {background:#333;color:#fff;}
+.jam input:not([type="checkbox"]),.jam textarea,.jam select {background:#fff;border-color:#c9c9c9;border-radius:8px;line-height:1.6;font-weight:650;}
+.jam input,.jam input.answer-slider {accent-color:#111;}
+.jam textarea::placeholder,.jam input::placeholder {color:#777;font-weight:500;}
+.jam button:focus-visible,.jam input:focus-visible,.jam textarea:focus-visible,.jam select:focus-visible {outline:2px solid #111;outline-offset:4px;}
+.jam small {color:#626262;}
+.jam .j-error {background:#f4f4f4;color:#111;border-left:4px solid #111;}
+.jam footer {border-color:#e5e5e5;color:#555;}
+.jam .reveal-card {background:#fff;color:#111;border-radius:12px;box-shadow:0 24px 100px #0003;}
+.jam .confetti {filter:grayscale(1);}
+.duo header {max-width:1360px;border-bottom:1px solid #e5e5e5;padding-top:26px;padding-bottom:26px;}
+.duo-entry {max-width:640px;margin:64px auto 90px;}
+.duo-entry h1 {font-size:clamp(48px,6vw,82px);margin:28px 0 48px;}
+.duo-entry .j-check {font-size:13px;color:#555;font-weight:600;}
+.room-choice button {border-radius:8px;min-height:90px;}
+.duo-topline {align-items:center;gap:16px;padding:12px 0;}
+.duo-steps {margin:20px 0 32px;gap:28px;}
+.duo-steps b {color:#777;border-color:#e5e5e5;font-size:13px;}
+.duo-steps .active {color:#111;border-color:#111;}
+.duo-controls {background:#fafafa;border:1px solid #e5e5e5;border-radius:10px;padding:16px;}
+.duo-scene {background:#fff;border-radius:0;border-top:1px solid #111;border-bottom:1px solid #ddd;padding:40px 0;margin:32px 0;gap:32px;}
+.duo-scene h1 {font-size:clamp(38px,4.7vw,72px);max-width:960px;}
+.duo-clock {border:1px solid #d4d4d4;border-radius:8px;min-width:180px;padding:22px;}
+.duo-clock strong {font-size:52px;letter-spacing:-.04em;}
+.duo-clock.urgent {background:#111;color:#fff;}
+.room-panel,.room-panel.KR,.room-panel.US {background:#fff;border:1px solid #ddd;border-top:3px solid #111;border-radius:10px;padding:26px;min-width:0;}
+.room-heading h2 {font-size:28px;}
+.room-heading>span {background:#111;min-width:34px;text-align:center;font-size:13px;}
+.duo-roster>span,.duo-roster .writing {background:#f3f3f3;color:#111;border:1px solid #e2e2e2;border-radius:6px;overflow-wrap:anywhere;}
+.duo-roster i {color:#111;}
+.duo-stickies {gap:16px;}
+.duo-sticky,.US .duo-sticky {background:#fafafa;border:1px solid #e2e2e2;border-radius:8px;box-shadow:none;padding:20px;}
+.duo-sticky h3 {font-size:20px;line-height:1.5;letter-spacing:-.02em;}
+.duo-sticky small {display:block;line-height:1.7;}
+.duo-sticky p {font-weight:600;}
+.live-editor {background:#fff;border:1px solid #e0e0e0;padding:28px;border-radius:10px;margin-top:20px;}
+.live-editor h3 {font-size:24px;margin-top:0;}
+.live-editor label,.group-conclusion label {font-size:14px;}
+.jam fieldset.answer-question {border-color:#e2e2e2;margin:28px 0;padding-top:24px;}
+.answer-question legend {font-weight:800;font-size:17px;}
+.meaning-options label {background:#fff;border:1px solid #ccc;border-radius:8px;padding:18px;min-height:64px;}
+.meaning-options label.picked {background:#111;color:#fff;border-color:#111;}
+.meaning-options label:focus-within {outline-color:#111;}
+.scale-value {font-size:34px;font-weight:850;letter-spacing:-.04em;}
+.scale-ticks button[aria-pressed="true"] {background:#111;color:#fff;}
+.group-conclusion {border-top:1px solid #ddd;padding-top:28px;}
+.visitor-line {background:#111;border-radius:10px;padding:30px;}
+.visitor-line small {color:#bbb;}
+.ai-answer,.ai-answer.US {background:#fff;border:1px solid #ccc;border-top:3px solid #111;border-radius:10px;padding:30px;min-width:0;}
+.ai-answer h3 {font-size:17px;}
+.ai-answer p {font-weight:650;line-height:1.75;}
+.ai-answer small {color:#555;}
+.duo-chat form,.duo pre {background:#fafafa;border:1px solid #ddd;border-radius:10px;}
+@media(max-width:800px){
+ .duo main {padding:16px 18px 50px;} .duo header {padding:20px 18px;}
+ .duo-entry {margin:36px auto 60px;} .duo-entry h1 {margin-bottom:32px;}
+ .duo-scene {padding:28px 0;gap:22px;} .duo-clock {min-width:0;padding:12px 16px;}
+ .duo-clock strong {font-size:36px;} .room-panel,.room-panel.KR,.room-panel.US {padding:18px;}
+ .live-editor {padding:18px;} .duo-steps {gap:12px;} .duo-steps b {font-size:11px;}
+ .room-choice button {padding:16px;gap:10px;} .room-choice span {font-size:25px;}
+ .ai-answer,.ai-answer.US {padding:22px;} .ai-answer p {font-size:20px;}
+}
+@media(prefers-reduced-motion:reduce){.jam button{transition:none;}}
+

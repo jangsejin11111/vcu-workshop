@@ -33,6 +33,7 @@ export default function Duo() {
     [admin, A] = useState(false),
     [password, P] = useState(""),
     [group, G] = useState("KR"),
+    [nickname, Nickname] = useState(""),
     [consent, Consent] = useState(false),
     [minutes, Minutes] = useState(5),
     [selectedCard, SelectCard] = useState(""),
@@ -207,6 +208,11 @@ export default function Duo() {
             </label>
             {!admin ? (
               <>
+                <label>{t("닉네임", "Nickname")}
+                  <input value={nickname} maxLength={24} autoComplete="nickname"
+                    placeholder={t("서로 알아볼 수 있는 이름", "A name others will recognize")}
+                    onChange={(e) => Nickname(e.target.value)} />
+                </label>
                 <div className="room-choice">
                   {["KR", "US"].map((g) => (
                     <button
@@ -232,11 +238,12 @@ export default function Duo() {
                 </label>
                 <button
                   className="j-primary"
-                  disabled={busy || !code || !consent}
+                  disabled={busy || !code || !consent || !nickname.trim()}
                   onClick={() =>
                     act(async () => {
                       const d = await api(root + "/join", {
                         group,
+                        nickname: nickname.trim(),
                         language: lang,
                         consent,
                       });
@@ -632,7 +639,7 @@ export default function Duo() {
                                 className="duo-sticky"
                               >
                                 <small>
-                                  {e.pid} ·{" "}
+                                  {state.participants.find((p: D) => p.id === e.participant)?.nickname || e.pid} ·{" "}
                                   {e.participant === state.participant
                                     ? t("나", "Me")
                                     : t("실시간", "Live")}
@@ -970,7 +977,7 @@ function Roster({ people }: { people: D[] }) {
       {people.map((p: D, i: number) => (
         <span key={p.id} className={p.typing ? "writing" : ""}>
           <i>{["●", "◆", "✦", "■"][i % 4]}</i>
-          {p.pid}
+          {p.nickname || p.pid}
           {p.typing && <b className="stream-cursor"> …</b>}
         </span>
       ))}
@@ -1238,7 +1245,7 @@ function LiveEditor({
         </p>
       )}
       {active && (
-        <button onClick={() => save()}>{t("지금 공유", "Share now")}</button>
+        <button className="j-primary" onClick={() => save()}>{t("지금 공유", "Share now")}</button>
       )}
     </section>
   );

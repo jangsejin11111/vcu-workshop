@@ -123,9 +123,9 @@ async function ready(f) {
   const admin = (await f.req("/login", { password: "test-pass" })).data.token;
   const code = (await f.req("/workshops", {}, admin)).data.id,
     root = "/workshops/" + code;
-  const kr = (await f.req(root + "/join", { group: "KR", consent: true })).data
+  const kr = (await f.req(root + "/join", { group: "KR", nickname: "Min", consent: true })).data
     .token;
-  const us = (await f.req(root + "/join", { group: "US", consent: true })).data
+  const us = (await f.req(root + "/join", { group: "US", nickname: "Alex", consent: true })).data
     .token;
   await f.req(
     root + "/control",
@@ -425,5 +425,20 @@ test("local jobs require a live worker, isolate leases, preserve progress, and n
     (await f.req(x.root, undefined, x.admin)).data.chats.at(-1).status,
     "failed",
   );
+});
+
+test("nicknames validate, persist on reconnect, and keep stable anonymous ids", async () => {
+ const f=fixture(), x=await ready(f);
+ for(const nickname of ["", " ", "x".repeat(25), "bad\nname"]){
+  assert.equal((await f.req(x.root+"/join",{group:"KR",consent:true,nickname})).status,422);
+ }
+ const joined=await f.req(x.root+"/join",{group:"KR",consent:true,nickname:"  지민  "});
+ assert.equal(joined.status,200);
+ const state=(await f.req(x.root,undefined,joined.data.token)).data;
+ assert.equal(state.participants.find(p=>p.id===state.participant).nickname,"지민");
+ assert.match(joined.data.pid,/^K\d+$/);
+ assert.equal((await f.req(x.root+"/join",{group:"KR",consent:true,nickname:"지민"})).status,409);
+ assert.equal((await f.req(x.root+"/join",{group:"US",consent:true,nickname:"지민"})).status,200);
+ assert.equal((await f.store.get("rooms/"+x.code)).participant.some(p=>p.nickname==="지민"),true);
 });
 

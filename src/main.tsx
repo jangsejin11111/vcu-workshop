@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import Duo from "./Duo";
 import Archive from "./Archive";
 import CloudArchive from "./CloudArchive";
+import "./monochrome.css";
 if (location.hash.startsWith("#duotoken=")) {
   sessionStorage.setItem(
     "duo-screen-" + new URLSearchParams(location.search).get("room"),
@@ -21,3 +22,4 @@ createRoot(document.getElementById("root")!).render(
     <Duo />
   ),
 );
+

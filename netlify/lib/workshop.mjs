@@ -110,6 +110,7 @@ export function publicState(w, a, env) {
       .map((p) => ({
         id: p.id,
         pid: p.pid,
+        nickname: p.nickname || p.pid,
         group: p.group,
         typing:
           w.phase === "discussion" &&
@@ -165,10 +166,14 @@ export function mutate(w, action, body, a, env) {
     fail(groups.includes(body.group), "Choose Korea or US room");
     fail(body.consent === true, "Sharing and AI use consent required");
     fail(w.participant.length < 150, "Workshop participant limit reached", 409);
+    const nickname = text(body.nickname || "", 24);
+    fail(nickname.length > 0 && !/[\u0000-\u001f\u007f]/u.test(nickname), "닉네임을 1–24자로 입력해 주세요. / Enter a nickname (1–24 characters).");
+    fail(!w.participant.some(p => p.group === body.group && (p.nickname || "").normalize("NFKC").toLowerCase() === nickname.normalize("NFKC").toLowerCase()), "같은 방에 사용 중인 닉네임입니다. / This nickname is already in use in this room.", 409);
     const group = body.group,
       count = w.participant.filter((p) => p.group === group).length;
     return add(w, "participant", {
       group,
+      nickname,
       pid: (group === "KR" ? "K" : "U") + String(count + 1).padStart(2, "0"),
       language: body.language === "en" ? "en" : "ko",
       consent: {

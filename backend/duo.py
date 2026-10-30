@@ -117,7 +117,7 @@ def install(app,auth,check,identity):
             roster=[]
             for p in people:
                 typing=any(e['participant']==p['id'] and e['round']==w['round'] and time.time()-e['saved_at']<8 for e in edits) and w['phase']=='discussion'
-                roster.append(dict(id=p['id'],pid=p['pid'],group=p['group'],typing=typing))
+                roster.append(dict(id=p['id'],pid=p['pid'],nickname=p.get('nickname',p['pid']),group=p['group'],typing=typing))
             versions=rows(c,code,'duo_persona')
             chats=rows(c,code,'duo_chat')
             if a['role']!='admin':chats=[{k:v for k,v in x.items() if k not in ['prompts','actor','request_id']} for x in chats]
@@ -133,8 +133,12 @@ def install(app,auth,check,identity):
             w=workshop(c,code);check(w['phase']!='done','Workshop finished',409)
             group=body.get('group');check(group in GROUPS,'Choose Korea or US room',422)
             check(body.get('consent') is True,'Group sharing and individual-response/group-note AI use consent required',422)
+            nickname=body.get('nickname','')
+            check(isinstance(nickname,str) and 0<len(nickname.strip())<=24 and not any(ord(ch)<32 or ord(ch)==127 for ch in nickname),'Enter a nickname (1–24 characters)',422)
+            nickname=nickname.strip()
+            check(not any(p.get('nickname','').casefold()==nickname.casefold() and p['group']==group for p in rows(c,code,'participant')),'Nickname already in use in this room',409)
             count=sum(p['group']==group for p in rows(c,code,'participant'))
-            p=put(c,code,'participant',dict(pid=('K' if group=='KR' else 'U')+f'{count+1:02}',group=group,language=body.get('language','ko'),consent={'classroom':True,'external_ai':True,'quote':False,'training':False}))
+            p=put(c,code,'participant',dict(nickname=nickname,pid=('K' if group=='KR' else 'U')+f'{count+1:02}',group=group,language=body.get('language','ko'),consent={'classroom':True,'external_ai':True,'quote':False,'training':False}))
             token,_=identity(c,code,'participant',participant=p['id'])
             return {'token':token,'pid':p['pid']}
     @router.post('/{code}/control')
@@ -251,3 +255,4 @@ def install(app,auth,check,identity):
         os.environ['OPENAI_API_KEY']=key
         return llm.config()
     app.include_router(router)
+
