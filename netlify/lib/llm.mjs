@@ -90,7 +90,12 @@ async function generateRequest(prompt, question, model, env, onText, fetcher) {
         }
       }
       if (["error", "response.failed", "response.incomplete"].includes(e.type)) {
-        const code = e.code || e.error?.code || e.response?.error?.code || e.response?.incomplete_details?.reason;
+        const code = e.code || e.error?.code || e.response?.error?.code || e.response?.incomplete_details?.reason || e.error?.type;
+        const safeCode = typeof code === 'string' && /^[a-z_]{1,70}$/.test(code) ? code : 'unspecified';
+        const message = String(e.message || e.error?.message || e.response?.error?.message || '').toLowerCase();
+        const hint = /quota|billing|credit/.test(message) ? 'API 크레딧·결제·사용 한도를 확인하세요 / Check API credit, billing and quota'
+          : /api.key|authentication|unauthorized/.test(message) ? 'API 키 인증을 확인하세요 / Check API key authentication'
+          : /permission|access/.test(message) ? 'API 권한을 확인하세요 / Check API permissions' : '';
         const reasons = {
           insufficient_quota:'OpenAI API 크레딧 또는 사용 한도 부족 / Insufficient API quota',
           invalid_api_key:'API 키 인증 실패 / Invalid API key',
@@ -100,7 +105,7 @@ async function generateRequest(prompt, question, model, env, onText, fetcher) {
           content_filter:'OpenAI에서 응답을 제한했습니다 / Response filtered',
           server_error:'OpenAI 내부 오류 / OpenAI server error',
         };
-        throw Object.assign(new Error('OpenAI stream failed'), {publicMessage:reasons[code] || `OpenAI 응답 중단 / Stream interrupted (${e.type})`});
+        throw Object.assign(new Error('OpenAI stream failed'), {publicMessage:reasons[code] || `OpenAI 응답 중단 / Stream interrupted (${e.type}, ${safeCode}). ${hint}`});
       }
       if (e.type === "response.completed") completed = e.response;
     }
