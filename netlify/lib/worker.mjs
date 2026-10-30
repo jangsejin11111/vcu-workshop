@@ -7,6 +7,7 @@ export function worker(w, body, a) {
   fail(id, "Worker ID required");
   const now = Date.now() / 1000;
   if (body.action === "poll") {
+    if (w.phase === "done") return { job: null, stop: true };
     const model = text(body.model, 100),
       digest = text(body.digest, 100),
       num_ctx = body.num_ctx;

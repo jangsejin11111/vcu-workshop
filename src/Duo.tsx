@@ -899,7 +899,10 @@ export default function Duo() {
                   .map((c: D) => (
                     <section className="comparison" key={c.id}>
                       <div className="visitor-line">
-                        <small>YOU · v{c.version}</small>
+                        <small>
+                          YOU · v{c.version} · {c.model}
+                          {c.provider === "ollama" ? " · LOCAL" : ""}
+                        </small>
                         <h2>{c.question}</h2>
                       </div>
                       <div className="duo-columns">

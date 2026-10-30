@@ -51,6 +51,11 @@ class Bridge:
                     # UTF-8 bytes conservatively bound tokenizer length; never silently discard participant data.
                     if len((prompt+question).encode('utf-8'))+2048>self.num_ctx:
                         raise RuntimeError('Reference data exceeds local context budget. Increase --num-ctx; responses were not truncated.')
+                    tags=httpx.get(self.ollama+'/api/tags',timeout=10)
+                    tags.raise_for_status()
+                    current=next((m for m in tags.json()['models'] if m['name']==job['model']),None)
+                    if not current or current['digest']!=job['model_digest']:
+                        raise RuntimeError('Local model changed after this question was queued. Restart the worker and ask again.')
                     answers[group]['status']='streaming';save('progress');last=time.monotonic();started=last;done=None
                     with httpx.stream('POST',self.ollama+'/api/chat',timeout=httpx.Timeout(300,connect=10),json={
                         'model':job['model'],'messages':[{'role':'system','content':prompt},{'role':'user','content':question}],
@@ -85,6 +90,9 @@ class Bridge:
                 # Readiness is advertised only while the local model server is reachable.
                 httpx.get(self.ollama+'/api/version',timeout=5).raise_for_status()
                 result=self.send({'action':'poll','model':self.model,'digest':self.digest,'num_ctx':self.num_ctx})
+                if result.get('stop'):
+                    print('Workshop finished. Local worker stopped.',flush=True)
+                    return
                 if result.get('job'):self.run_job(result['job'])
                 if once:return
             except Exception as error:
