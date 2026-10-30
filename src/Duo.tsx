@@ -191,7 +191,7 @@ export default function Duo() {
         )}
         {!state ? (
           <section className="duo-entry">
-            <p className="j-kicker">DAY 01 · KOREA + US</p>
+            <p className="j-kicker">DAY 01 · K-Arts + VCU</p>
             <h1>
               {t("같은 말.\n두 개의 시선.", "Same words.\nTwo perspectives.")}
             </h1>
@@ -280,7 +280,7 @@ export default function Duo() {
                       onClick={() =>
                         act(async () => {
                           const r = await api("/workshops", {
-                            name: "Same words · Korea + US",
+                            name: "Same words · K-Arts + VCU",
                           });
                           enter(token, r.id);
                         })
