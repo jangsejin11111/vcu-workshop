@@ -122,4 +122,3 @@ def test_short_password_and_dated_versions(env,monkeypatch):
  assert c.get('/api/workshops/'+a.upper(),headers=admin).status_code==200
  with db() as conn:put(conn,'*','room_alias',{'id':'alias-OLD123','target':a})
  assert c.get('/api/workshops/OLD123',headers=admin).json()['id']==a
-

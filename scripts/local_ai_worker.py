@@ -1,5 +1,5 @@
 """Outbound-only Netlify ↔ local Ollama bridge. No public listener or OpenAI call."""
-import argparse, getpass, json, os, threading, time, uuid
+import argparse, copy, getpass, json, os, threading, time, uuid
 from pathlib import Path
 from urllib.parse import urlparse
 import httpx
@@ -100,14 +100,86 @@ class Bridge:
                 if once:raise
             time.sleep(5)
 
+class AutoBridge:
+    """Discover rooms while a single inference loop serves them in round-robin order."""
+    def __init__(self, bridge):
+        self.bridge=bridge
+        self.rooms={}
+        self.lock=threading.Lock()
+        self.stop=threading.Event()
+        self.cursor=0
+
+    def discover(self):
+        # Never advertise readiness when Ollama is unavailable.
+        httpx.get(self.bridge.ollama+'/api/version',timeout=5).raise_for_status()
+        response=self.bridge.cloud.get(self.bridge.site+'/api/workshops')
+        response.raise_for_status()
+        connected={}
+        for room in response.json():
+            if room.get('phase') == 'done':
+                continue
+            b=copy.copy(self.bridge)
+            b.room=room['id']
+            try:
+                result=b.send({'action':'advertise','model':b.model,'digest':b.digest,'num_ctx':b.num_ctx},retry=False)
+                if not result.get('stop'):connected[b.room]=b
+            except Exception as error:
+                # A room owned by another worker must not prevent other rooms from connecting.
+                print('Room unavailable:',b.room,type(error).__name__,flush=True)
+        with self.lock:self.rooms=connected
+
+    def serve_one(self):
+        httpx.get(self.bridge.ollama+'/api/version',timeout=5).raise_for_status()
+        with self.lock:rooms=list(self.rooms.values())
+        if not rooms:return False
+        start=self.cursor % len(rooms)
+        for offset in range(len(rooms)):
+            index=(start+offset)%len(rooms)
+            b=rooms[index]
+            try:
+                result=b.send({'action':'poll','model':b.model,'digest':b.digest,'num_ctx':b.num_ctx})
+            except Exception as error:
+                print('Room poll failed:',b.room,type(error).__name__,flush=True)
+                continue
+            if result.get('job'):
+                self.cursor=index+1
+                print('Answering workshop:',b.room,flush=True)
+                b.run_job(result['job'])
+                return True
+        return False
+
+    def run(self):
+        def discovery():
+            while not self.stop.is_set():
+                try:self.discover()
+                except Exception as error:print('Discovery waiting:',type(error).__name__,flush=True)
+                self.stop.wait(20)
+        thread=threading.Thread(target=discovery,daemon=True)
+        thread.start()
+        print('Local AI auto-connect enabled. New workshops are discovered every 20 seconds.',flush=True)
+        try:
+            while not self.stop.is_set():
+                try:worked=self.serve_one()
+                except Exception as error:
+                    print('Worker waiting:',type(error).__name__,flush=True)
+                    worked=False
+                if not worked:self.stop.wait(5)
+        finally:
+            self.stop.set()
+            thread.join(timeout=30)
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('--site',required=True);p.add_argument('--room',required=True)
+    p.add_argument('--site',required=True);p.add_argument('--room',help='Optional: restrict the worker to one workshop')
     p.add_argument('--model',default='qwen3:4b-instruct');p.add_argument('--num-ctx',type=int,default=32768)
     p.add_argument('--once',action='store_true')
     args=p.parse_args()
     password=os.environ.get('VCU_ADMIN_PASSWORD') or getpass.getpass('Facilitator password: ')
-    Bridge(args.site,args.room,password,args.model,args.num_ctx).run(args.once)
+    bridge=Bridge(args.site,args.room,password,args.model,args.num_ctx)
+    if args.room:bridge.run(args.once)
+    elif args.once:
+        auto=AutoBridge(bridge);auto.discover();auto.serve_one()
+    else:AutoBridge(bridge).run()
 
 if __name__=='__main__':main()
-

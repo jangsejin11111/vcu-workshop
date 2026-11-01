@@ -166,4 +166,3 @@ async function generateRequest(prompt, question, model, env, onText, fetcher) {
     status: "complete",
   };
 }
-

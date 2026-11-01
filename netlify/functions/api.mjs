@@ -166,7 +166,14 @@ export function handler({
       // Persist expiration before validating mutations, including rejected late saves.
       await update(store, key, (w) => {
         fail(w, "Workshop not found", 404);
-        return { write: expire(w) };
+        let changed = expire(w);
+        if (method === 'GET' && !action && a.role === 'participant') {
+          const person = w.participant.find(p => p.id === a.participant);
+          if (person && Date.now()/1000 - (person.last_seen || 0) > 20) {
+            person.last_seen = Date.now()/1000; changed = true;
+          }
+        }
+        return { write: changed };
       });
       if (method === "GET") {
         const w = await store.get(key, { type: "json" });
@@ -265,4 +272,3 @@ export function handler({
   };
 }
 export default handler();
-

@@ -111,6 +111,7 @@ export function publicState(w, a, env) {
         id: p.id,
         pid: p.pid,
         nickname: p.nickname || p.pid,
+        online: Date.now()/1000 - (p.last_seen || 0) < 60,
         group: p.group,
         typing:
           w.phase === "discussion" &&
@@ -545,4 +546,3 @@ export function csv(w) {
       .join("\r\n")
   );
 }
-

@@ -442,3 +442,22 @@ test("nicknames validate, persist on reconnect, and keep stable anonymous ids", 
  assert.equal((await f.store.get("rooms/"+x.code)).participant.some(p=>p.nickname==="지민"),true);
 });
 
+test("auto worker advertisements connect rooms without claiming or crossing leases",async()=>{
+ const {worker}=await import('../../netlify/lib/worker.mjs');
+ const {create}=await import('../../netlify/lib/workshop.mjs');
+ const a=create('1031a',{}), b=create('1031b',{});
+ const body={action:'advertise',worker:'auto',model:'model',digest:'digest',num_ctx:32768};
+ for(const w of [a,b])w.duo_chat.push({id:w.code,provider:'ollama',status:'queued',model:'model',model_digest:'digest',num_ctx:32768});
+ assert.throws(()=>worker(a,body,{role:'participant'}));
+ for(const w of [a,b]){
+  assert.equal(worker(w,body,{role:'admin'}).job,null);
+  assert.equal(w.duo_chat[0].status,'queued');
+  assert.equal(w.local_ai.worker,'auto');
+ }
+ const claimed=worker(a,{...body,action:'poll'},{role:'admin'}).job;
+ assert.equal(claimed.id,'1031a');
+ assert.equal(b.duo_chat[0].status,'queued');
+ assert.throws(()=>worker(b,{...body,action:'heartbeat',job:claimed.id,lease:claimed.lease},{role:'admin'}));
+ assert.throws(()=>worker(a,{...body,worker:'other'},{role:'admin'}));
+ b.phase='done';assert.equal(worker(b,body,{role:'admin'}).stop,true);
+});

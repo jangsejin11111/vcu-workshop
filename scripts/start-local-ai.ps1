@@ -1,6 +1,6 @@
 param(
   [string]$Site = 'https://helpful-platypus-92c08f.netlify.app',
-  [Parameter(Mandatory=$true)][string]$Room,
+  [string]$Room = '',
   [string]$Model = 'qwen3:4b-instruct'
 )
 $projectRoot = Split-Path $PSScriptRoot -Parent
@@ -22,5 +22,6 @@ if (-not $env:VCU_ADMIN_PASSWORD) {
   $env:VCU_ADMIN_PASSWORD = [System.Net.NetworkCredential]::new('', $secret).Password
 }
 # Foreground worker gives the facilitator an explicit running/stopped indicator.
-& .venv/Scripts/python.exe scripts/local_ai_worker.py --site $Site --room $Room --model $Model
-
+$workerArgs = @('scripts/local_ai_worker.py', '--site', $Site, '--model', $Model)
+if ($Room) { $workerArgs += @('--room', $Room) }
+& .venv/Scripts/python.exe @workerArgs

@@ -6,7 +6,7 @@ export function worker(w, body, a) {
   const id = text(body.worker, 100);
   fail(id, "Worker ID required");
   const now = Date.now() / 1000;
-  if (body.action === "poll") {
+  if (["poll", "advertise"].includes(body.action)) {
     if (w.phase === "done") return { job: null, stop: true };
     const model = text(body.model, 100),
       digest = text(body.digest, 100),
@@ -29,7 +29,7 @@ export function worker(w, body, a) {
       409,
     );
     w.local_ai = { worker: id, model, digest, num_ctx, seen_at: now };
-    if (active) return { job: null };
+    if (active || body.action === "advertise") return { job: null };
     const job = w.duo_chat.find(
       (c) => c.provider === "ollama" && c.status === "queued",
     );
@@ -114,4 +114,3 @@ export function worker(w, body, a) {
   }
   return { ok: true };
 }
-

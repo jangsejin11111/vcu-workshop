@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
+import SceneArt from "./SceneArt";
+import Rehearsal from "./Rehearsal";
+import { Icon, CardMark } from "./Icons";
 import { CardReveal } from "./LiveRoom";
 import "./jam.css";
 import "./duo.css";
@@ -22,6 +25,8 @@ export default function Duo() {
       "",
   );
   const screen = new URLSearchParams(location.search).has("screen");
+  const previewGroup = new URLSearchParams(location.search).get("preview");
+  const preview = previewGroup === 'KR' || previewGroup === 'US';
   const [token, T] = useState(
     (screen
       ? sessionStorage.getItem("duo-screen-" + code)
@@ -41,8 +46,15 @@ export default function Duo() {
     [question, Q] = useState(""),
     [key, K] = useState(""),
     [showSetup, Setup] = useState(false),
+    [focusCard, FocusCard] = useState(false),
     [time, Time] = useState(Date.now()),
     [rooms, Rooms] = useState<D[]>([]);
+  const [presentChat, PresentChat] = useState(false);
+  const focusDialog = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (focusCard) { focusDialog.current?.showModal(); const previous=document.body.style.overflow; document.body.style.overflow="hidden"; return () => {document.body.style.overflow=previous;}; }
+    else focusDialog.current?.close();
+  }, [focusCard]);
   const offset = useRef(0),
     pending = useRef<{ question: string; id: string } | null>(null);
   const root = "/workshops/" + code;
@@ -63,7 +75,10 @@ export default function Duo() {
     if (token && code) {
       const d = await api(root);
       offset.current = d.server_time * 1000 - Date.now();
-      S(d);
+      S(preview && d.role === 'admin' ? {...d, role:'participant', group:previewGroup, participant:null,
+        participants:d.participants.filter((p:D)=>p.group===previewGroup),
+        edits:d.edits.filter((e:D)=>e.group===previewGroup),
+        conclusions:d.conclusions.filter((n:D)=>n.group===previewGroup)} : d);
     }
   }
   async function act(fn: () => Promise<any>) {
@@ -129,7 +144,7 @@ export default function Duo() {
       .toString()
       .padStart(2, "0")}:${(s % 60).toString().padStart(2, "0")}`;
   const editable =
-    state?.phase === "discussion" && remaining > 0 && view?.id === current?.id;
+    !preview && state?.phase === "discussion" && remaining > 0 && view?.id === current?.id;
   async function download() {
     const d = await api(root + "/export");
     const url = URL.createObjectURL(
@@ -152,12 +167,13 @@ export default function Duo() {
     }
   }
   return (
-    <div className="jam duo">
+    <div className={"jam duo" + (presentChat ? " presenting-chat" : "")}>
+      {preview && <aside className="participant-preview-banner">{t('참여자 화면 미리보기 · 읽기 전용', 'Participant preview · read only')} · {groupName(previewGroup!,lang)} <button onClick={()=>window.close()}>{t('닫기','Close')}</button></aside>}
       <header>
         <a href="/">
           SAME WORDS
           <br />
-          <b>TWO PERSPECTIVES</b>
+          <b>DIFFERENT FEELINGS</b>
         </a>
         <div>
           <button
@@ -172,6 +188,7 @@ export default function Duo() {
           {state && (
             <button
               onClick={() => {
+                if (preview) { window.close(); return; }
                 T("");
                 S(null);
                 localStorage.removeItem("duo-token-" + code);
@@ -191,9 +208,9 @@ export default function Duo() {
         )}
         {!state ? (
           <section className="duo-entry">
-            <p className="j-kicker">DAY 01 · K-Arts + VCU</p>
+            <CardMark /><p className="j-kicker">DAY 01 · K-Arts + VCU</p>
             <h1>
-              {t("같은 말.\n두 개의 시선.", "Same words.\nTwo perspectives.")}
+              {t("같은 말.\n다른 느낌.", "Same words.\nDifferent feelings.")}
             </h1>
             <label>
               {t("워크숍 코드", "Workshop code")}
@@ -220,7 +237,7 @@ export default function Duo() {
                       className={group === g ? "selected" : ""}
                       onClick={() => G(g)}
                     >
-                      <span>{g === "KR" ? "●" : "◆"}</span>
+                      <span className="group-symbol">{g === "KR" ? "K" : "V"}</span>
                       <b>{groupName(g, lang)}</b>
                     </button>
                   ))}
@@ -329,7 +346,11 @@ export default function Duo() {
               </b>
             </div>
             {state.role === "admin" && !screen && (
-              <section className="duo-controls">
+              <section className="duo-controls facilitator-console" aria-label={t("진행 콘솔", "Facilitator console")}>
+                {!CLOUD && <Rehearsal {...{state,code,token,api,enter,refresh,act,busy,lang}} />}
+                <div className="console-heading"><div><small><Icon name="screen" /> {t("진행 콘솔", "FACILITATOR CONSOLE")}</small><h2>{state.phase === "discussion" ? t("지금은 함께 토론할 시간", "Discussion in progress") : state.phase === "round_closed" ? t("다음 카드를 열까요?", "Ready for the next card?") : state.phase === "prepare" ? t("두 조의 결론을 확인하세요", "Review both groups’ notes") : state.phase === "compare" ? t("같은 질문으로 두 AI 비교", "Compare both AI responses") : t("첫 번째 카드를 준비하세요", "Prepare your first card")}</h2></div><span className="console-status"><Icon name="people" /> {t("참여자", "Participants")} {state.participants.length}</span></div>
+                <div className="console-actions">
+                {['KR','US'].map(g=><button key={g} onClick={()=>window.open('/?room='+encodeURIComponent(code)+'&preview='+g,'_blank','noopener')}><Icon name="screen" />{groupName(g,lang)} {t('미리보기','preview')}</button>)}
                 {!state.started_at && (
                   <button
                     onClick={() => act(() => command({ action: "start" }))}
@@ -340,7 +361,7 @@ export default function Duo() {
                 {["lobby", "round_closed"].includes(state.phase) && (
                   <>
                     <select
-                      aria-label="Card"
+                      aria-label={t("상황카드 선택", "Choose a card")}
                       value={selectedCard}
                       onChange={(e) => SelectCard(e.target.value)}
                     >
@@ -358,7 +379,7 @@ export default function Duo() {
                       )}
                     </select>
                     <select
-                      aria-label="Minutes"
+                      aria-label={t("토론 시간", "Discussion time")}
                       value={minutes}
                       onChange={(e) => Minutes(Number(e.target.value))}
                     >
@@ -382,7 +403,7 @@ export default function Duo() {
                         )
                       }
                     >
-                      {t("양쪽에 카드 공개", "Draw for both rooms")} ↗
+                      <Icon name="cards" /> {t("양쪽에 카드 공개", "Draw for both rooms")} ↗
                     </button>
                   </>
                 )}
@@ -396,7 +417,7 @@ export default function Duo() {
                     <button
                       onClick={() => act(() => command({ action: "close" }))}
                     >
-                      {t("토론 종료", "Close round")}
+                      <Icon name="check" /> {t("이번 카드 토론 마치기", "Finish this round")}
                     </button>
                   </>
                 )}
@@ -406,9 +427,11 @@ export default function Duo() {
                   <button
                     onClick={() => act(() => command({ action: "prepare" }))}
                   >
-                    {t("결론 확인 · AI 준비", "Review notes · prepare AI")}
+                    <Icon name="spark" /> {t("결론 확인 · AI 준비", "Review notes · prepare AI")}
                   </button>
                 )}
+                </div>
+                <details className="console-tools"><summary>{t("공용 화면 · 저장 · AI 설정", "Screen · export · AI settings")}</summary><div>
                 <button
                   onClick={() =>
                     act(async () => {
@@ -421,7 +444,7 @@ export default function Duo() {
                     })
                   }
                 >
-                  {t("공용 화면", "Shared screen")}
+                  <Icon name="screen" /> {t("공용 화면", "Shared screen")}
                 </button>
                 <button onClick={() => act(download)}>JSON ↓</button>
                 <button onClick={() => Setup(!showSetup)}>
@@ -429,6 +452,7 @@ export default function Duo() {
                     ? t("AI 연결됨", "AI connected")
                     : t("AI 연결 설정", "Connect AI")}
                 </button>
+                </div></details>
               </section>
             )}
             {showSetup && state.role === "admin" && (
@@ -446,7 +470,9 @@ export default function Duo() {
                       ? t("연결 프로그램 실행 필요", "Start local worker")
                       : t("키 필요", "API key needed")}
                 </p>
-                {state.llm.local ? (
+                {state.llm.local && !CLOUD ? (
+                  <p>{t("이 컴퓨터의 Ollama를 켜두면 새 방에도 자동 연결됩니다. API 키는 필요 없습니다.", "Keep Ollama running on this computer. New rooms connect automatically. No API key required.")}</p>
+                ) : state.llm.local ? (
                   <div>
                     <p>
                       {t(
@@ -454,7 +480,7 @@ export default function Duo() {
                         "Run the command on the facilitator computer and keep it running. Participants keep using this website.",
                       )}
                     </p>
-                    <pre>{`powershell -File scripts/start-local-ai.ps1 -Room ${code}`}</pre>
+                    <pre>{`powershell -File scripts/start-local-ai.ps1`}</pre>
                     <p>
                       {t(
                         "API 키·크레딧이 필요하지 않습니다. 컴퓨터가 꺼지거나 연결이 끊기면 AI 답변이 중단됩니다.",
@@ -519,7 +545,7 @@ export default function Duo() {
                 <div className="duo-columns">
                   {(state.group ? [state.group] : ["KR", "US"]).map((g) => (
                     <section className={"room-panel " + g} key={g}>
-                      <h2>{groupName(g, lang)}</h2>
+                      <h2><span className="room-monogram" aria-hidden="true">{g === "KR" ? "K" : "V"}</span>{groupName(g, lang)}</h2>
                       <Roster
                         people={state.participants.filter(
                           (p: D) => p.group === g,
@@ -553,13 +579,14 @@ export default function Duo() {
                       drawn: state.drawn,
                     }}
                   />
-                  <article className="duo-scene">
-                    <div>
-                      <small>ROUND {current.number}</small>
+                  <article className={"duo-scene " + (state.role === "participant" ? "has-scene-art" : "")}>
+                    <div className="scene-copy">
+                      {(state.role === "participant" || screen) && <SceneArt card={current.card} lang={lang} />}
+                      <small className="scene-label"><Icon name="cards" /> ROUND {current.number}</small>
                       <p>{current.scene[lang === "ko" ? 0 : 1]}</p>
                       <h1>“{current.scene[lang === "ko" ? 2 : 3]}”</h1>
                     </div>
-                    <div
+                    <button type="button" onClick={() => FocusCard(true)} aria-label={t("카드와 타이머 크게 보기", "Expand card and timer")}
                       className={
                         "duo-clock " + (remaining < 30 ? "urgent" : "")
                       }
@@ -577,7 +604,8 @@ export default function Duo() {
                               "Write & discuss together",
                             )}
                       </span>
-                    </div>
+                      <small className="clock-hint"><Icon name="expand" /> {t("크게 보기 ↗", "Expand ↗")}</small>
+                    </button>
                   </article>
                   <div className="board-tabs">
                     {state.rounds.map((r: D) => (
@@ -599,7 +627,7 @@ export default function Duo() {
                     {(state.group ? [state.group] : ["KR", "US"]).map((g) => (
                       <section className={"room-panel " + g} key={g}>
                         <div className="room-heading">
-                          <h2>{groupName(g, lang)}</h2>
+                          <h2><span className="room-monogram" aria-hidden="true">{g === "KR" ? "K" : "V"}</span>{groupName(g, lang)}</h2>
                           <span>
                             {
                               state.participants.filter((p: D) => p.group === g)
@@ -637,12 +665,11 @@ export default function Duo() {
                               <article
                                 key={e.participant}
                                 className="duo-sticky"
+                                style={{'--note-color': `hsl(${((Number(String(e.pid).replace(/\D/g,'')) || 1) * 137.508 + (g === 'US' ? 65 : 0)) % 360} 78% 89%)`} as React.CSSProperties}
                               >
                                 <small>
                                   {state.participants.find((p: D) => p.id === e.participant)?.nickname || e.pid} ·{" "}
-                                  {e.participant === state.participant
-                                    ? t("나", "Me")
-                                    : t("실시간", "Live")}
+                                  <span className={"connection-status " + (state.participants.find((p:D)=>p.id===e.participant)?.online ? "online" : "offline")} role="img" aria-label={state.participants.find((p:D)=>p.id===e.participant)?.online ? t("연결됨","Connected") : t("연결 신호 없음","No recent connection")} title={t("최근 60초 접속 신호 기준","Connection signal within 60 seconds")}>{state.participants.find((p:D)=>p.id===e.participant)?.online ? "●" : "×"}</span>
                                 </small>
                                 <small>
                                   {(
@@ -655,12 +682,10 @@ export default function Duo() {
                                   )[e.answers.choice] || "—"}
                                 </small>
                                 <h3>{e.answers.meaning || "…"}</h3>
-                                <small>
-                                  {t("확신", "Certainty")}{" "}
-                                  {e.answers.certainty || "—"}/5 ·{" "}
-                                  {t("흔함", "Frequency")}{" "}
-                                  {e.answers.familiarity || "—"}/5
-                                </small>
+                                <div className="rating-pair">
+                                  <Rating label={t("확신","Certainty")} value={e.answers.certainty} />
+                                  <Rating label={t("흔함","Familiarity")} value={e.answers.familiarity} />
+                                </div>
                                 <p>
                                   <b>{t("대답", "Say")}</b>{" "}
                                   {e.answers.reply || "—"}
@@ -688,7 +713,7 @@ export default function Duo() {
                             )}
                             active={
                               state.role === "admin" ||
-                              (state.role === "participant" && editable)
+                              (!preview && state.role === "participant" && editable)
                             }
                             admin={state.role === "admin"}
                             api={api}
@@ -697,7 +722,7 @@ export default function Duo() {
                             refresh={refresh}
                           />
                         )}
-                        <details className="duo-bert">
+                        {state.role === "admin" && <details className="duo-bert">
                           <summary>
                             Sentence-BERT · {t("저장된 분석", "Saved analysis")}
                           </summary>
@@ -739,7 +764,7 @@ export default function Duo() {
                               )}
                             </a>
                           )}
-                        </details>
+                        </details>}
                       </section>
                     ))}
                   </div>
@@ -808,25 +833,18 @@ export default function Duo() {
             )}
             {["compare", "done"].includes(state.phase) && (
               <section className="duo-chat">
-                <h1>
-                  {t(
-                    "같은 질문.\n두 개의 답변.",
-                    "One question.\nTwo responses.",
-                  )}
-                </h1>
-                <p>
-                  {state.llm.model} ·{" "}
-                  {t(
-                    "같은 모델 · 조별 메모만 다르게",
-                    "Same model · different group notes",
-                  )}
-                </p>
+                <div className="chat-room-heading">
+                  <div className="chat-room-avatars" aria-hidden="true"><span>K</span><span>V</span></div>
+                  <div><small>K-Arts × VCU · LIVE CHAT</small><h1>{t("같은 말, 다른 느낌", "Same Words, Different Feelings")}</h1><p>{t("진행자 + 두 AI 페르소나", "Facilitator + two AI personas")}</p></div>
+                  <button onClick={()=>PresentChat(!presentChat)}>{presentChat?t("진행 화면으로","Exit presentation"):t("화면 공유 모드","Present chat")}</button>
+                </div>
+                {!state.chats.length && <div className="chat-welcome"><span className="chat-wave">✦</span><h2>{t("두 AI를 대화에 초대했어요", "Two AIs have joined the chat")}</h2><p>{t("같은 질문을 보내고, 두 답변을 나란히 비교해 보세요.", "Send one question. Compare both answers side by side.")}</p><div className="chat-empty-pair"><span>K · K-Arts {t("질문 대기", "Ready for a question")}</span><span>V · VCU {t("질문 대기", "Ready for a question")}</span></div></div>}
                 {!state.llm.configured && (
                   <div className="j-error">
                     {state.llm.local
                       ? t(
-                          "진행자 컴퓨터의 로컬 AI 연결을 기다리고 있어요.",
-                          "Waiting for the facilitator’s local AI worker.",
+                          "로컬 AI 연결 프로그램을 실행해 주세요. 새 방은 20초 간격으로 확인해 자동 연결합니다.",
+                          "Start the local AI connector. New rooms are checked every 20 seconds.",
                         )
                       : t(
                           "진행자 컴퓨터에서 OpenAI 키를 연결하면 실제 AI 응답이 시작됩니다.",
@@ -836,7 +854,7 @@ export default function Duo() {
                 )}
                 {state.role === "admin" && state.phase === "compare" && (
                   <>
-                    <div className="j-options">
+                    <div className="j-options chat-suggestions">
                       {[
                         "I'm fine.",
                         "It's all in the past.",
@@ -847,7 +865,7 @@ export default function Duo() {
                         </button>
                       ))}
                     </div>
-                    <form
+                    <form className="chat-composer"
                       onSubmit={(e) => {
                         e.preventDefault();
                         act(async () => {
@@ -904,10 +922,10 @@ export default function Duo() {
                   .slice()
                   .reverse()
                   .map((c: D) => (
-                    <section className="comparison" key={c.id}>
+                    <section className="comparison" key={c.id} aria-label={c.question}>
                       <div className="visitor-line">
                         <small>
-                          YOU · v{c.version} · {c.model}
+                          {t("진행자의 질문", "FACILITATOR")} · v{c.version}
                           {c.provider === "ollama" ? " · LOCAL" : ""}
                         </small>
                         <h2>{c.question}</h2>
@@ -915,17 +933,17 @@ export default function Duo() {
                       <div className="duo-columns">
                         {["KR", "US"].map((g) => (
                           <article key={g} className={"ai-answer " + g}>
-                            <h3>
+                            <h3><span className="chat-avatar" aria-hidden="true">{g === "KR" ? "K" : "V"}</span>
                               {g === "KR"
                                 ? t("K-Arts 페르소나", "K-Arts persona")
                                 : t("VCU 페르소나", "VCU persona")}
                             </h3>
-                            <p>
+                            <p className="chat-bubble" aria-live="polite">
                               {c.answers[g].text ||
                                 (["queued", "streaming"].includes(
                                   c.answers[g].status,
                                 )
-                                  ? "•••"
+                                  ? (c.status === "queued" ? t("순서 대기 중…", "Waiting in queue…") : t("답변 작성 중…", "Writing a response…"))
                                   : "—")}
                             </p>
                             {c.answers[g].status === "failed" && (
@@ -962,10 +980,18 @@ export default function Duo() {
           </>
         )}
       </main>
+      <dialog ref={focusDialog} className="focus-dialog" onClose={() => FocusCard(false)} onClick={e => { if(e.target === e.currentTarget) FocusCard(false); }}>
+        {current && state && <div className="focus-content">
+          <div className="focus-top"><span>ROUND {String(current.number).padStart(2,"0")} · K-Arts + VCU</span><button autoFocus onClick={() => FocusCard(false)}>{t("닫기", "Close")} ×</button></div>
+          <div className="focus-scene-layout"><div><p className="focus-context">{current.scene[lang === "ko" ? 0 : 1]}</p>
+          <h1>“{current.scene[lang === "ko" ? 2 : 3]}”</h1></div><SceneArt card={current.card} lang={lang} /></div>
+          <div className="focus-bottom"><div><span>{remaining > 0 && state.phase === "discussion" ? t("토론 · 응답 작성", "DISCUSS & WRITE") : t("토론 종료", "ROUND CLOSED")}</span><strong className="focus-time" role="timer">{state.phase === "round_closed" ? "00:00" : format(remaining)}</strong></div><p>{remaining > 0 && state.phase === "discussion" ? t("각자의 해석을 적고,\n함께 이야기해 주세요.", "Write your interpretation.\nDiscuss it together.") : t("작성을 마치고\n진행자를 봐주세요.", "Finish your notes.\nReturn to the facilitator.")}</p></div>
+        </div>}
+      </dialog>
       <footer>
-        <a href={"/?archive=1&room=" + code + "&phase=discussion"}>
+        {state?.role === "admin" && <a href={"/?archive=1&room=" + code + "&phase=discussion"}>
           {t("기록 · Sentence-BERT 보관함", "Records · Sentence-BERT archive")}
-        </a>
+        </a>}
         <span>VCU × KART / DAY 01</span>
       </footer>
     </div>
@@ -1170,7 +1196,7 @@ function LiveEditor({
   return (
     <section className="live-editor">
       <h3>
-        {t("내 생각", "My thoughts")}{" "}
+        <span className="icon-title"><Icon name="pen" />{t("내 생각", "My thoughts")}</span>{" "}
         <small aria-live="polite">
           {active ? status : t("마감", "Closed")}
         </small>
@@ -1307,10 +1333,13 @@ function Conclusion({
   }
   return (
     <section className="group-conclusion">
+      <div className="conclusion-heading">
+      <span className="conclusion-mark" aria-hidden="true"><Icon name="pen" /></span>
       <h3>
         {t("우리 조의 결론", "Our group’s conclusion")}{" "}
-        {record?.approved ? "✓" : ""}
       </h3>
+      {record?.approved && <span className="conclusion-approved">✓ {t("확정", "Confirmed")}</span>}
+      </div>
       <label>
         {t("결론과 예외", "Conclusion & exceptions")}
         <textarea
@@ -1378,3 +1407,8 @@ function Conclusion({
   );
 }
 
+
+function Rating({label,value}:{label:string,value:any}) {
+  const n=Number(value); const valid=n>=1 && n<=5;
+  return <div className="icon-rating"><span>{label}</span><span className="rating-dots" role="img" aria-label={valid ? `${label}: ${n}/5` : `${label}: —`} title={valid ? `${n}/5` : '—'}>{Array.from({length:5},(_,i)=><i key={i} className={valid && i<n?'filled':''}/>)}</span>{!valid && <span>—</span>}</div>;
+}

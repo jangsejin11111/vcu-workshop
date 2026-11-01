@@ -109,6 +109,8 @@ def install(app,auth,check,identity):
         with db() as c:
             a,w=access(c,code,authorization)
             p=get(c,a.get('participant',''),'participant')
+            if p and time.time()-p.get('last_seen',0)>20:
+                p['last_seen']=time.time();put(c,code,'participant',p)
             group=p['group'] if p else None
             allowed=[group] if group else GROUPS
             edits=[e for e in rows(c,code,'duo_edit') if e['group'] in allowed]
@@ -117,7 +119,7 @@ def install(app,auth,check,identity):
             roster=[]
             for p in people:
                 typing=any(e['participant']==p['id'] and e['round']==w['round'] and time.time()-e['saved_at']<8 for e in edits) and w['phase']=='discussion'
-                roster.append(dict(id=p['id'],pid=p['pid'],nickname=p.get('nickname',p['pid']),group=p['group'],typing=typing))
+                roster.append(dict(id=p['id'],pid=p['pid'],nickname=p.get('nickname',p['pid']),group=p['group'],typing=typing,online=time.time()-p.get('last_seen',0)<60))
             versions=rows(c,code,'duo_persona')
             chats=rows(c,code,'duo_chat')
             if a['role']!='admin':chats=[{k:v for k,v in x.items() if k not in ['prompts','actor','request_id']} for x in chats]
@@ -255,4 +257,3 @@ def install(app,auth,check,identity):
         os.environ['OPENAI_API_KEY']=key
         return llm.config()
     app.include_router(router)
-

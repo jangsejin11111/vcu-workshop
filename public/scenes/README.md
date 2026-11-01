@@ -1,0 +1,1 @@
+Workshop scene illustrations. Lossless WebP copies of generated monochrome images.
