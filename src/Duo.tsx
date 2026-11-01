@@ -65,6 +65,8 @@ export default function Duo() {
   }, [focusCard]);
   const offset = useRef(0),
     pending = useRef<{ question: string; id: string } | null>(null);
+  const activeRoom = useRef({code, token});
+  activeRoom.current = {code, token};
   const root = "/workshops/" + code;
   const api: Api = async (path, body, tk = token) => {
     const r = await fetch("/api" + path, {
@@ -82,6 +84,7 @@ export default function Duo() {
   async function refresh() {
     if (token && code) {
       const d = await api(root);
+      if (activeRoom.current.code !== code || activeRoom.current.token !== token) return;
       offset.current = d.server_time * 1000 - Date.now();
       S(preview && d.role === 'admin' ? {...d, role:'participant', group:previewGroup, participant:null,
         participants:d.participants.filter((p:D)=>p.group===previewGroup),
@@ -105,6 +108,8 @@ export default function Duo() {
     await refresh();
   }
   function enter(tk: string, c = code) {
+    activeRoom.current = {code:c, token:tk};
+    S(null); SelectRound(""); Q(""); PresentChat(false);
     localStorage.setItem("duo-token-" + c, tk);
     localStorage.setItem("duo-room", c);
     T(tk);
@@ -197,9 +202,11 @@ export default function Duo() {
             <button
               onClick={() => {
                 if (preview) { window.close(); return; }
-                T("");
-                S(null);
+                activeRoom.current = {code:"", token:""};
+                T(""); C(""); S(null); PresentChat(false); Rooms([]);
                 localStorage.removeItem("duo-token-" + code);
+                localStorage.removeItem("duo-room");
+                history.replaceState(null, "", location.pathname);
               }}
             >
               {t("나가기", "Exit")}
@@ -297,21 +304,24 @@ export default function Duo() {
                   disabled={busy}
                   onClick={() => act(login)}
                 >
-                  {t("로그인", "Sign in")}
+                  {t("기존 방 입장", "Open existing workshop")}
                 </button>
-                {token && (
+                {admin && (
                   <>
                     <button
+                      disabled={busy || !password}
                       onClick={() =>
                         act(async () => {
+                          const auth = await api("/login", {password});
+                          localStorage.setItem("jam-admin-token", auth.token);
                           const r = await api("/workshops", {
                             name: "Same words · K-Arts + VCU",
-                          });
-                          enter(token, r.id);
+                          }, auth.token);
+                          enter(auth.token, r.id);
                         })
                       }
                     >
-                      {t("새 워크숍 만들기", "Create workshop")}
+                      {t("빈 새 워크숍 만들기 · 01부터", "Create empty workshop · start at 01")}
                     </button>
                     {rooms.map((r) => (
                       <button key={r.id} onClick={() => enter(token, r.id)}>
