@@ -212,3 +212,16 @@ html,body,#root {background:#fff;}
 .duo-chat>details{flex-shrink:0;max-height:120px;overflow:auto;}
 .presenting-chat .duo-chat{height:calc(100dvh - 24px);max-height:none;}
 @media(max-width:650px){.duo-chat{padding:12px;height:calc(100dvh - 16px);min-height:520px;}.duo-chat .chat-room-heading h1{font-size:24px;}.duo-chat .chat-suggestions{gap:4px;}.duo-chat .chat-suggestions button{padding:8px;font-size:12px;}}
+
+/* Blue chat room with strong, explicit boundaries. */
+.duo-chat{background:#2876d7;border:3px solid #142d50;box-shadow:0 12px 32px #142d5026;}
+.duo-chat .chat-room-heading{border-bottom:3px solid #142d50;}
+.duo-chat .chat-room-heading h1,.duo-chat .chat-room-heading small,.duo-chat .chat-room-heading p,.duo-chat .ai-answer h3{color:#fff;}
+.duo-chat .chat-room-heading>button{background:#fff;color:#111;border:2px solid #142d50;}
+.duo-chat .comparison{border-bottom:2px solid #183c6a;}
+.duo-chat .chat-bubble,.duo-chat .KR .chat-bubble,.duo-chat .US .chat-bubble{border:3px solid #142d50;}
+.duo-chat .visitor-line{border:3px solid #142d50;}
+.duo-chat .chat-composer{border:3px solid #142d50;box-shadow:0 4px 0 #142d5033;}
+.duo-chat .chat-composer textarea{border:2px solid #64748b;border-radius:10px;padding:10px;}
+.duo-chat .chat-welcome,.duo-chat .chat-welcome p,.duo-chat .chat-wave,.duo-chat>details{color:#fff;}
+.duo-chat .chat-empty-pair span,.duo-chat>details pre{color:#111;}

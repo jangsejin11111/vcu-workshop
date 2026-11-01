@@ -905,17 +905,6 @@ export default function Duo() {
                 </div>
                 {state.role === "admin" && state.phase === "compare" && (
                   <>
-                    <div className="j-options chat-suggestions">
-                      {[
-                        "I'm fine.",
-                        "It's all in the past.",
-                        "Maybe next time.",
-                      ].map((q) => (
-                        <button key={q} onClick={() => Q(q)}>
-                          {q}
-                        </button>
-                      ))}
-                    </div>
                     <form className="chat-composer"
                       onSubmit={(e) => {
                         e.preventDefault();
