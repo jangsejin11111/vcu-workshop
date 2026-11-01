@@ -197,3 +197,18 @@ html,body,#root {background:#fff;}
 .presenting-chat header,.presenting-chat .duo-topline,.presenting-chat .duo-steps,.presenting-chat .facilitator-console,.presenting-chat footer,.presenting-chat .duo-chat>details{display:none;}.presenting-chat .duo-chat{margin-top:12px;}
 @media(max-width:650px){.duo-chat{padding:16px;border-radius:16px;}.chat-room-heading{gap:12px;}.chat-room-heading>button{margin-left:0;}.duo-chat .visitor-line{max-width:100%;}.duo-chat .chat-bubble{padding:18px;}}
 
+
+/* A bounded conversation: oldest first, composer always beneath latest replies. */
+.duo-chat{background:#f6f7f8;border:2px solid #cbd0d5;box-shadow:0 16px 48px #00000012;gap:12px;height:calc(100dvh - 32px);min-height:560px;max-height:1000px;overflow:hidden;}
+.duo-chat .chat-room-heading{flex-shrink:0;padding-bottom:12px;}
+.chat-transcript{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:12px 8px;scrollbar-gutter:stable;}
+.duo-chat .chat-suggestions,.duo-chat .chat-composer{flex-shrink:0;order:initial;}
+.duo-chat .chat-composer{padding:12px 16px;border-top:2px solid #cbd0d5;}
+.duo-chat .chat-composer textarea{min-height:48px;max-height:100px;}
+.duo-chat .chat-composer button{background:#111;color:#fff;}
+.duo-chat .KR .chat-bubble{background:#e9ebee;border-color:#d5d9de;}
+.duo-chat .US .chat-bubble{background:#fff;}
+.duo-chat .US .chat-avatar,.chat-room-avatars span+span{background:#fff;color:#111;border:1px solid #cbd0d5;}
+.duo-chat>details{flex-shrink:0;max-height:120px;overflow:auto;}
+.presenting-chat .duo-chat{height:calc(100dvh - 24px);max-height:none;}
+@media(max-width:650px){.duo-chat{padding:12px;height:calc(100dvh - 16px);min-height:520px;}.duo-chat .chat-room-heading h1{font-size:24px;}.duo-chat .chat-suggestions{gap:4px;}.duo-chat .chat-suggestions button{padding:8px;font-size:12px;}}

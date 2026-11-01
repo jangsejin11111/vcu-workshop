@@ -50,6 +50,14 @@ export default function Duo() {
     [time, Time] = useState(Date.now()),
     [rooms, Rooms] = useState<D[]>([]);
   const [presentChat, PresentChat] = useState(false);
+  const chatScroll = useRef<HTMLDivElement>(null);
+  const followChat = useRef(true);
+  const lastChat = state?.chats?.[state.chats.length - 1];
+  const chatRevision = JSON.stringify(lastChat || null);
+  useEffect(() => {
+    const el = chatScroll.current;
+    if (el && followChat.current) el.scrollTop = el.scrollHeight;
+  }, [chatRevision, presentChat]);
   const focusDialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     if (focusCard) { focusDialog.current?.showModal(); const previous=document.body.style.overflow; document.body.style.overflow="hidden"; return () => {document.body.style.overflow=previous;}; }
@@ -852,6 +860,49 @@ export default function Duo() {
                         )}
                   </div>
                 )}
+                <div className="chat-transcript" ref={chatScroll} role="region" aria-label={t("대화 기록", "Conversation history")} tabIndex={0} onScroll={() => {
+                  const el = chatScroll.current;
+                  if (el) followChat.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+                }}>
+                {state.chats
+                  .slice()
+                  .map((c: D) => (
+                    <section className="comparison" key={c.id} aria-label={c.question}>
+                      <div className="visitor-line">
+                        <small>
+                          {t("진행자의 질문", "FACILITATOR")} · v{c.version}
+                          {c.provider === "ollama" ? " · LOCAL" : ""}
+                        </small>
+                        <h2>{c.question}</h2>
+                      </div>
+                      <div className="duo-columns">
+                        {["KR", "US"].map((g) => (
+                          <article key={g} className={"ai-answer " + g}>
+                            <h3><span className="chat-avatar" aria-hidden="true">{g === "KR" ? "K" : "V"}</span>
+                              {g === "KR"
+                                ? t("K-Arts 페르소나", "K-Arts persona")
+                                : t("VCU 페르소나", "VCU persona")}
+                            </h3>
+                            <p className="chat-bubble" aria-live="polite">
+                              {c.answers[g].text ||
+                                (["queued", "streaming"].includes(
+                                  c.answers[g].status,
+                                )
+                                  ? (c.status === "queued" ? t("순서 대기 중…", "Waiting in queue…") : t("답변 작성 중…", "Writing a response…"))
+                                  : "—")}
+                            </p>
+                            {c.answers[g].status === "failed" && (
+                              <small role="alert">{c.answers[g].error}</small>
+                            )}
+                            {c.answers[g].status === "streaming" && (
+                              <span className="stream-cursor">▍</span>
+                            )}
+                          </article>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
                 {state.role === "admin" && state.phase === "compare" && (
                   <>
                     <div className="j-options chat-suggestions">
@@ -879,6 +930,7 @@ export default function Duo() {
                                 crypto.getRandomValues(new Uint32Array(4)),
                               ).join("-"),
                             };
+                          followChat.current = true;
                           await api(root + "/chat", {
                             question,
                             request_id: pending.current.id,
@@ -918,45 +970,6 @@ export default function Duo() {
                     </form>
                   </>
                 )}
-                {state.chats
-                  .slice()
-                  .reverse()
-                  .map((c: D) => (
-                    <section className="comparison" key={c.id} aria-label={c.question}>
-                      <div className="visitor-line">
-                        <small>
-                          {t("진행자의 질문", "FACILITATOR")} · v{c.version}
-                          {c.provider === "ollama" ? " · LOCAL" : ""}
-                        </small>
-                        <h2>{c.question}</h2>
-                      </div>
-                      <div className="duo-columns">
-                        {["KR", "US"].map((g) => (
-                          <article key={g} className={"ai-answer " + g}>
-                            <h3><span className="chat-avatar" aria-hidden="true">{g === "KR" ? "K" : "V"}</span>
-                              {g === "KR"
-                                ? t("K-Arts 페르소나", "K-Arts persona")
-                                : t("VCU 페르소나", "VCU persona")}
-                            </h3>
-                            <p className="chat-bubble" aria-live="polite">
-                              {c.answers[g].text ||
-                                (["queued", "streaming"].includes(
-                                  c.answers[g].status,
-                                )
-                                  ? (c.status === "queued" ? t("순서 대기 중…", "Waiting in queue…") : t("답변 작성 중…", "Writing a response…"))
-                                  : "—")}
-                            </p>
-                            {c.answers[g].status === "failed" && (
-                              <small role="alert">{c.answers[g].error}</small>
-                            )}
-                            {c.answers[g].status === "streaming" && (
-                              <span className="stream-cursor">▍</span>
-                            )}
-                          </article>
-                        ))}
-                      </div>
-                    </section>
-                  ))}
                 {state.role === "admin" &&
                   state.personas.map((v: D) => (
                     <details key={v.id}>
