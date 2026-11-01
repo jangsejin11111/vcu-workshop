@@ -225,3 +225,25 @@ html,body,#root {background:#fff;}
 .duo-chat .chat-composer textarea{border:2px solid #64748b;border-radius:10px;padding:10px;}
 .duo-chat .chat-welcome,.duo-chat .chat-welcome p,.duo-chat .chat-wave,.duo-chat>details{color:#fff;}
 .duo-chat .chat-empty-pair span,.duo-chat>details pre{color:#111;}
+
+/* A separate white title bar above the blue conversation. */
+.duo-chat{padding:0;gap:0;}
+.duo-chat .chat-room-heading{background:#fff;margin:0;padding:20px 24px;border-bottom:3px solid #142d50;}
+.duo-chat .chat-room-heading h1,.duo-chat .chat-room-heading small,.duo-chat .chat-room-heading p{color:#111;}
+.duo-chat .chat-transcript{margin:14px 20px 0;padding:12px 8px;}
+.duo-chat .chat-composer{margin:14px 20px 20px;}
+.duo-chat>details,.duo-chat>.j-error{margin:8px 20px;}
+@media(max-width:650px){.duo-chat .chat-room-heading{padding:14px;}.duo-chat .chat-transcript{margin:8px 8px 0;}.duo-chat .chat-composer{margin:8px;}}
+
+/* Presentation uses the viewport for conversation, without the title bar. */
+.presenting-chat{position:fixed;inset:0;z-index:1000;background:#2876d7;overflow:hidden;}
+.presenting-chat main{max-width:none!important;width:100%!important;height:100dvh;margin:0!important;padding:0!important;}
+.presenting-chat .duo-chat{height:100dvh;min-height:0;max-height:none;margin:0;border:0;border-radius:0;box-shadow:none;}
+.presenting-chat .chat-room-heading{display:none;}
+.chat-exit-presentation{position:absolute;right:16px;top:10px;z-index:3;background:#fff!important;color:#111!important;border:2px solid #142d50!important;padding:6px 12px!important;font-size:13px!important;}
+.presenting-chat .chat-transcript{margin:48px 20px 0;padding:8px;}
+.presenting-chat .chat-composer{display:flex;align-items:flex-end;gap:16px;margin:8px 20px 14px;padding:10px 14px;border-radius:16px;}
+.presenting-chat .chat-composer label{flex:1;margin:0;}
+.presenting-chat .chat-composer textarea{height:54px;min-height:54px;max-height:90px;margin:5px 0 0;resize:none;}
+.presenting-chat .chat-composer button{margin:0;white-space:nowrap;}
+@media(max-width:650px){.presenting-chat .chat-transcript{margin:46px 6px 0;}.presenting-chat .chat-composer{gap:8px;margin:6px;padding:8px;}.presenting-chat .chat-composer button{padding:10px;font-size:12px;}}

@@ -1,5 +1,6 @@
 """Real OpenAI Responses API. Secrets remain in process memory only."""
-import os, json, time
+import os, json, time, asyncio
+from .personality import compile_personality
 import httpx
 PROVIDER = os.environ.get('VCU_LLM_PROVIDER','ollama')
 MODEL = os.environ.get('VCU_LLM_MODEL','qwen3:4b-instruct' if PROVIDER == 'ollama' else 'gpt-4.1-mini')
@@ -37,7 +38,8 @@ async def generate(prompt, question, on_delta, model_name=None):
     if PROVIDER == 'ollama':
         if model_name and model_name != MODEL:
             raise RuntimeError('모델이 변경되었습니다. 결론 확인 · AI 준비에서 페르소나를 다시 확정해 주세요.')
-        result={'text':'','model':MODEL,'provider':'ollama','usage':None}
+        prompt, profile = await asyncio.to_thread(compile_personality, prompt, MODEL, OLLAMA)
+        result={'text':'','model':MODEL,'provider':'ollama','usage':None,'personality_profile':profile,'effective_prompt':prompt}
         done=False
         async with httpx.AsyncClient(timeout=httpx.Timeout(300,connect=10)) as client:
             async with client.stream('POST',OLLAMA+'/api/chat',json={'model':MODEL,'messages':[{'role':'system','content':prompt},{'role':'user','content':question}],'stream':True,'keep_alive':'30m','options':{'temperature':.7,'num_predict':600,'num_ctx':16384}}) as response:

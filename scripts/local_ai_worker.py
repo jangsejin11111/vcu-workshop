@@ -3,6 +3,9 @@ import argparse, copy, getpass, json, os, threading, time, uuid
 from pathlib import Path
 from urllib.parse import urlparse
 import httpx
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from backend.personality import compile_personality
 
 class Bridge:
     def __init__(self, site, room, password, model, num_ctx, ollama='http://127.0.0.1:11434'):
@@ -56,6 +59,9 @@ class Bridge:
                     current=next((m for m in tags.json()['models'] if m['name']==job['model']),None)
                     if not current or current['digest']!=job['model_digest']:
                         raise RuntimeError('Local model changed after this question was queued. Restart the worker and ask again.')
+                    prompt, profile = compile_personality(prompt, job['model'], self.ollama, self.num_ctx)
+                    answers[group]['personality_profile'] = profile
+                    answers[group]['effective_prompt'] = prompt
                     answers[group]['status']='streaming';save('progress');last=time.monotonic();started=last;done=None
                     with httpx.stream('POST',self.ollama+'/api/chat',timeout=httpx.Timeout(300,connect=10),json={
                         'model':job['model'],'messages':[{'role':'system','content':prompt},{'role':'user','content':question}],

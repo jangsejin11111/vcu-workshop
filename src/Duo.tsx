@@ -851,6 +851,7 @@ export default function Duo() {
             )}
             {["compare", "done"].includes(state.phase) && (
               <section className="duo-chat">
+                {presentChat && <button className="chat-exit-presentation" onClick={() => PresentChat(false)}>{t("공유 종료", "Exit presentation")} ×</button>}
                 <div className="chat-room-heading">
                   <div className="chat-room-avatars" aria-hidden="true"><span>K</span><span>V</span></div>
                   <div><small>K-Arts × VCU · LIVE CHAT</small><h1>{t("같은 말, 다른 느낌", "Same Words, Different Feelings")}</h1><p>{t("진행자 + 두 AI 페르소나", "Facilitator + two AI personas")}</p></div>
